@@ -76,6 +76,65 @@ export function exportPDF(
     y += 7;
   });
 
+  // Floor plan diagram
+  y += 12;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(40, 40, 40);
+  doc.text("Plano de Planta", 14, y);
+  y += 6;
+
+  const maxDiagramW = w - 28;
+  const maxDiagramH = 100;
+  const scale = Math.min(maxDiagramW / input.ancho, maxDiagramH / input.largo);
+  const dw = input.ancho * scale;
+  const dh = input.largo * scale;
+  const ox = 14 + (maxDiagramW - dw) / 2;
+  const oy = y;
+
+  // Area rect
+  doc.setFillColor(230, 245, 243);
+  doc.setDrawColor(0, 133, 119);
+  doc.setLineWidth(0.5);
+  doc.rect(ox, oy, dw, dh, "FD");
+
+  // Tubes
+  doc.setDrawColor(100, 100, 100);
+  doc.setLineWidth(0.3);
+  doc.setLineDashPattern([2, 1.5], 0);
+  result.tubePositions.forEach((pos) => {
+    if (result.tubeDirection === "vertical") {
+      const x = ox + pos * scale;
+      doc.line(x, oy, x, oy + dh);
+    } else {
+      const yy = oy + pos * scale;
+      doc.line(ox, yy, ox + dw, yy);
+    }
+  });
+  doc.setLineDashPattern([], 0);
+
+  // Pilotines
+  result.pilotinPositions.forEach((pos) => {
+    const cx = ox + pos.x * scale;
+    const cy = oy + pos.y * scale;
+    doc.setFillColor(0, 133, 119);
+    doc.circle(cx, cy, 0.8, "F");
+  });
+
+  // Dimension labels
+  doc.setFontSize(8);
+  doc.setTextColor(60, 60, 60);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${input.ancho} m`, ox + dw / 2, oy - 2, { align: "center" });
+  // Vertical label
+  doc.text(`${input.largo} m`, ox - 4, oy + dh / 2, { align: "center", angle: 90 });
+
+  // Legend
+  y = oy + dh + 8;
+  doc.setFontSize(7);
+  doc.setTextColor(100, 100, 100);
+  doc.text("--- Tubos de aluminio    ● Pilotines", ox, y);
+
   // Footer
   y += 10;
   doc.setFontSize(8);
