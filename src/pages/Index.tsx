@@ -14,21 +14,22 @@ const Index = () => {
   const [ancho, setAncho] = useState("");
   const [largo, setLargo] = useState("");
   const [medidaTabla, setMedidaTabla] = useState<"2.2" | "2.9">("2.2");
-  const [sentido, setSentido] = useState<"horizontal" | "vertical">("horizontal");
+  const [sentido, setSentido] = useState<"ancho" | "largo">("ancho");
   const [result, setResult] = useState<DeckResult | null>(null);
 
   const handleCalculate = () => {
     const a = parseFloat(ancho);
     const l = parseFloat(largo);
     if (!a || !l || a <= 0 || l <= 0) return;
-    const input: DeckInput = { ancho: a, largo: l, medidaTabla, sentido };
+    const mappedSentido = sentido === "ancho" ? "horizontal" : "vertical";
+    const input: DeckInput = { ancho: a, largo: l, medidaTabla, sentido: mappedSentido };
     setResult(calculateDeck(input));
   };
 
   const handleExport = () => {
     if (!result) return;
     exportPDF(
-      { ancho: parseFloat(ancho), largo: parseFloat(largo), medidaTabla, sentido },
+      { ancho: parseFloat(ancho), largo: parseFloat(largo), medidaTabla, sentido: sentido === "ancho" ? "A lo ancho" : "A lo largo" },
       result
     );
   };
@@ -109,17 +110,27 @@ const Index = () => {
               </RadioGroup>
             </div>
             <div className="space-y-2">
-              <Label>Sentido de instalación</Label>
-              <RadioGroup value={sentido} onValueChange={(v) => setSentido(v as "horizontal" | "vertical")} className="flex gap-4">
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="horizontal" id="sh" />
-                  <Label htmlFor="sh" className="cursor-pointer">Horizontal</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="vertical" id="sv" />
-                  <Label htmlFor="sv" className="cursor-pointer">Vertical</Label>
-                </div>
-              </RadioGroup>
+              <Label>Sentido de colocación de tablas</Label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={sentido === "ancho"}
+                    onChange={() => setSentido("ancho")}
+                    className="w-4 h-4 accent-primary rounded"
+                  />
+                  <span className="text-sm">A lo ancho</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={sentido === "largo"}
+                    onChange={() => setSentido("largo")}
+                    className="w-4 h-4 accent-primary rounded"
+                  />
+                  <span className="text-sm">A lo largo</span>
+                </label>
+              </div>
             </div>
           </CardContent>
         </Card>
