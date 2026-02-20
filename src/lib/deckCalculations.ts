@@ -65,7 +65,7 @@ export function calculateDeck(input: DeckInput): DeckResult {
 
   // Clips & screws
   const clips = Math.ceil(superficieReal * 18);
-  const tornillos = clips * 2;
+  const tornillos = clips;
 
   return {
     superficieReal,
