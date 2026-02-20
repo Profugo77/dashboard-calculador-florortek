@@ -1,8 +1,8 @@
-import { DeckResult } from "@/lib/deckCalculations";
+import { DeckResult, CoverPerimetral } from "@/lib/deckCalculations";
 import jsPDF from "jspdf";
 
 export function exportPDF(
-  input: { ancho: number; largo: number; medidaTabla: string; sentido: string },
+  input: { ancho: number; largo: number; medidaTabla: string; sentido: string; cover?: CoverPerimetral },
   result: DeckResult
 ) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -123,6 +123,17 @@ export function exportPDF(
     doc.setFillColor(0, 133, 119);
     doc.circle(cx, cy, 0.8, "F");
   });
+
+  // Cover perimetral — líneas naranjas
+  if (input.cover) {
+    doc.setDrawColor(255, 120, 20);
+    doc.setLineWidth(1.2);
+    const co = 0.6;
+    if (input.cover.ancho1) doc.line(ox - co, oy, ox + dw + co, oy);
+    if (input.cover.ancho2) doc.line(ox - co, oy + dh, ox + dw + co, oy + dh);
+    if (input.cover.largo1) doc.line(ox, oy - co, ox, oy + dh + co);
+    if (input.cover.largo2) doc.line(ox + dw, oy - co, ox + dw, oy + dh + co);
+  }
 
   // Dimension labels
   doc.setFontSize(8);

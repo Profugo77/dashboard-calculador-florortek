@@ -34,7 +34,7 @@ const Index = () => {
   const handleExport = () => {
     if (!result) return;
     exportPDF(
-      { ancho: parseFloat(ancho), largo: parseFloat(largo), medidaTabla, sentido: sentido === "ancho" ? "A lo ancho" : "A lo largo" },
+      { ancho: parseFloat(ancho), largo: parseFloat(largo), medidaTabla, sentido: sentido === "ancho" ? "A lo ancho" : "A lo largo", cover },
       result
     );
   };
@@ -226,7 +226,7 @@ const Index = () => {
                 <CardTitle className="text-lg">Plano de Planta</CardTitle>
               </CardHeader>
               <CardContent>
-                <FloorPlanSVG result={result} ancho={parseFloat(ancho)} largo={parseFloat(largo)} />
+                <FloorPlanSVG result={result} ancho={parseFloat(ancho)} largo={parseFloat(largo)} cover={cover} />
               </CardContent>
             </Card>
 
