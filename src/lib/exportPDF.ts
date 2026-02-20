@@ -45,7 +45,7 @@ export function exportPDF(
   doc.text("Resumen de Materiales", 14, y);
   y += 8;
 
-  const rows = [
+  const rows: string[][] = [
     ["Material", "Cantidad"],
     ["Superficie de tablas (m²)", result.superficieConDesperdicio.toFixed(2)],
     ["Estructura aluminio (ml)", result.metrosLinealesAluminio.toFixed(2)],
@@ -53,6 +53,9 @@ export function exportPDF(
     ["Clips de fijación", String(result.clips)],
     ["Tornillos técnicos", String(result.tornillos)],
   ];
+  if (result.mlCoverPerimetral > 0) {
+    rows.push(["Cover perimetral (ml)", result.mlCoverPerimetral.toFixed(2)]);
+  }
 
   doc.setFontSize(10);
   const colX = [14, w - 50];
