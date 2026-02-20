@@ -1,8 +1,8 @@
 export interface CoverPerimetral {
-  superior: boolean;
-  inferior: boolean;
-  izquierdo: boolean;
-  derecho: boolean;
+  ancho1: boolean;
+  ancho2: boolean;
+  largo1: boolean;
+  largo2: boolean;
 }
 
 export interface DeckInput {
@@ -79,10 +79,10 @@ export function calculateDeck(input: DeckInput): DeckResult {
   // Cover perimetral (ml por lado seleccionado)
   const cover = input.coverPerimetral;
   const mlCoverPerimetral = cover
-    ? (cover.superior ? ancho : 0) +
-      (cover.inferior ? ancho : 0) +
-      (cover.izquierdo ? largo : 0) +
-      (cover.derecho ? largo : 0)
+    ? (cover.ancho1 ? ancho : 0) +
+      (cover.ancho2 ? ancho : 0) +
+      (cover.largo1 ? largo : 0) +
+      (cover.largo2 ? largo : 0)
     : 0;
 
   return {
