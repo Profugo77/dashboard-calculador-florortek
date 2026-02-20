@@ -1,8 +1,16 @@
+export interface CoverPerimetral {
+  superior: boolean;
+  inferior: boolean;
+  izquierdo: boolean;
+  derecho: boolean;
+}
+
 export interface DeckInput {
   ancho: number;
   largo: number;
   medidaTabla: "2.2" | "2.9";
   sentido: "horizontal" | "vertical";
+  coverPerimetral?: CoverPerimetral;
 }
 
 export interface DeckResult {
@@ -13,6 +21,7 @@ export interface DeckResult {
   pilotines: number;
   clips: number;
   tornillos: number;
+  mlCoverPerimetral: number;
   // For SVG drawing
   tubePositions: number[];
   tubeLength: number;
@@ -67,6 +76,15 @@ export function calculateDeck(input: DeckInput): DeckResult {
   const clips = Math.ceil(superficieReal * 18);
   const tornillos = clips;
 
+  // Cover perimetral (ml por lado seleccionado)
+  const cover = input.coverPerimetral;
+  const mlCoverPerimetral = cover
+    ? (cover.superior ? ancho : 0) +
+      (cover.inferior ? ancho : 0) +
+      (cover.izquierdo ? largo : 0) +
+      (cover.derecho ? largo : 0)
+    : 0;
+
   return {
     superficieReal,
     superficieConDesperdicio: Math.ceil(superficieConDesperdicio * 100) / 100,
@@ -75,6 +93,7 @@ export function calculateDeck(input: DeckInput): DeckResult {
     pilotines,
     clips,
     tornillos,
+    mlCoverPerimetral: Math.ceil(mlCoverPerimetral * 100) / 100,
     tubePositions,
     tubeLength: tubeLengthDimension,
     pilotinPositions,

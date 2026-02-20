@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { calculateDeck, DeckInput, DeckResult } from "@/lib/deckCalculations";
+import { calculateDeck, DeckInput, DeckResult, CoverPerimetral } from "@/lib/deckCalculations";
 import { exportPDF } from "@/lib/exportPDF";
 import FloorPlanSVG from "@/components/FloorPlanSVG";
 import { Calculator, Download, Ruler, Layers } from "lucide-react";
@@ -15,14 +15,19 @@ const Index = () => {
   const [largo, setLargo] = useState("");
   const [medidaTabla, setMedidaTabla] = useState<"2.2" | "2.9">("2.2");
   const [sentido, setSentido] = useState<"ancho" | "largo">("ancho");
+  const [cover, setCover] = useState<CoverPerimetral>({ superior: false, inferior: false, izquierdo: false, derecho: false });
   const [result, setResult] = useState<DeckResult | null>(null);
+
+  const toggleCover = (lado: keyof CoverPerimetral) => {
+    setCover((prev) => ({ ...prev, [lado]: !prev[lado] }));
+  };
 
   const handleCalculate = () => {
     const a = parseFloat(ancho);
     const l = parseFloat(largo);
     if (!a || !l || a <= 0 || l <= 0) return;
     const mappedSentido = sentido === "ancho" ? "horizontal" : "vertical";
-    const input: DeckInput = { ancho: a, largo: l, medidaTabla, sentido: mappedSentido };
+    const input: DeckInput = { ancho: a, largo: l, medidaTabla, sentido: mappedSentido, coverPerimetral: cover };
     setResult(calculateDeck(input));
   };
 
@@ -135,6 +140,29 @@ const Index = () => {
           </CardContent>
         </Card>
 
+        {/* Cover perimetral */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Cover Perimetral</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Label className="text-sm text-muted-foreground">Seleccioná los lados que llevan cover</Label>
+            <div className="grid grid-cols-2 gap-3">
+              {(["superior", "inferior", "izquierdo", "derecho"] as const).map((lado) => (
+                <label key={lado} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={cover[lado]}
+                    onChange={() => toggleCover(lado)}
+                    className="w-4 h-4 accent-primary rounded"
+                  />
+                  <span className="text-sm capitalize">{lado.charAt(0).toUpperCase() + lado.slice(1)}</span>
+                </label>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Calculate button */}
         <Button onClick={handleCalculate} disabled={!isValid} className="w-full h-12 text-base font-semibold" size="lg">
           <Calculator className="w-5 h-5 mr-2" />
@@ -177,6 +205,12 @@ const Index = () => {
                       <TableCell>Tornillos técnicos</TableCell>
                       <TableCell className="text-right font-semibold">{result.tornillos}</TableCell>
                     </TableRow>
+                    {result.mlCoverPerimetral > 0 && (
+                      <TableRow>
+                        <TableCell>Cover perimetral</TableCell>
+                        <TableCell className="text-right font-semibold">{result.mlCoverPerimetral.toFixed(2)} ml</TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
