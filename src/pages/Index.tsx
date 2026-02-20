@@ -15,7 +15,7 @@ const Index = () => {
   const [largo, setLargo] = useState("");
   const [medidaTabla, setMedidaTabla] = useState<"2.2" | "2.9">("2.2");
   const [sentido, setSentido] = useState<"ancho" | "largo">("ancho");
-  const [cover, setCover] = useState<CoverPerimetral>({ superior: false, inferior: false, izquierdo: false, derecho: false });
+  const [cover, setCover] = useState<CoverPerimetral>({ ancho1: false, ancho2: false, largo1: false, largo2: false });
   const [result, setResult] = useState<DeckResult | null>(null);
 
   const toggleCover = (lado: keyof CoverPerimetral) => {
@@ -148,17 +148,22 @@ const Index = () => {
           <CardContent className="space-y-3">
             <Label className="text-sm text-muted-foreground">Seleccioná los lados que llevan cover</Label>
             <div className="grid grid-cols-2 gap-3">
-              {(["superior", "inferior", "izquierdo", "derecho"] as const).map((lado) => (
-                <label key={lado} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={cover[lado]}
-                    onChange={() => toggleCover(lado)}
-                    className="w-4 h-4 accent-primary rounded"
-                  />
-                  <span className="text-sm capitalize">{lado.charAt(0).toUpperCase() + lado.slice(1)}</span>
-                </label>
-              ))}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={cover.ancho1} onChange={() => toggleCover("ancho1")} className="w-4 h-4 accent-primary rounded" />
+                <span className="text-sm">Ancho 1</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={cover.ancho2} onChange={() => toggleCover("ancho2")} className="w-4 h-4 accent-primary rounded" />
+                <span className="text-sm">Ancho 2</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={cover.largo1} onChange={() => toggleCover("largo1")} className="w-4 h-4 accent-primary rounded" />
+                <span className="text-sm">Largo 1</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={cover.largo2} onChange={() => toggleCover("largo2")} className="w-4 h-4 accent-primary rounded" />
+                <span className="text-sm">Largo 2</span>
+              </label>
             </div>
           </CardContent>
         </Card>
