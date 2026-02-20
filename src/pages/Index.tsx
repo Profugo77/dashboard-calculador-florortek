@@ -8,7 +8,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { calculateDeck, DeckInput, DeckResult, CoverPerimetral } from "@/lib/deckCalculations";
 import { exportPDF } from "@/lib/exportPDF";
 import FloorPlanSVG from "@/components/FloorPlanSVG";
-import IsometricDeckSVG from "@/components/IsometricDeckSVG";
 import { Calculator, Download, Ruler, Layers } from "lucide-react";
 
 const Index = () => {
@@ -228,15 +227,6 @@ const Index = () => {
               </CardHeader>
               <CardContent>
                 <FloorPlanSVG result={result} ancho={parseFloat(ancho)} largo={parseFloat(largo)} cover={cover} />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Vista Isométrica</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <IsometricDeckSVG result={result} ancho={parseFloat(ancho)} largo={parseFloat(largo)} cover={cover} />
               </CardContent>
             </Card>
 
