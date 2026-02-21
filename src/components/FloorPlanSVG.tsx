@@ -11,8 +11,8 @@ const COVER_COLOR = "hsl(25 100% 55%)";
 const BOARD_WIDTH = 0.145; // 14.5cm
 const BOARD_GAP = 0.005; // 5mm
 const BOARD_PITCH = BOARD_WIDTH + BOARD_GAP;
-const BOARD_COLORS = ["hsl(28 45% 62%)", "hsl(28 30% 50%)"];
-const BOARD_STROKE = "hsl(28 20% 38%)";
+const BOARD_COLOR = "hsl(30 40% 65%)";
+const BOARD_STROKE = "hsl(0 0% 10%)";
 
 interface BoardRect {
   x: number;
@@ -97,7 +97,7 @@ function generateBoardRects(
         }
       }
 
-      rects.push({ x: rx, y: ry, w: rw, h: rh, colorIdx: segIdx % 2 });
+      rects.push({ x: rx, y: ry, w: rw, h: rh, colorIdx: 0 });
       segIdx++;
     }
   }
@@ -263,7 +263,7 @@ const FloorPlanSVG = ({ result, ancho, largo, cover }: FloorPlanSVGProps) => {
                 y={oy + b.y * scale}
                 width={b.w * scale}
                 height={b.h * scale}
-                fill={BOARD_COLORS[b.colorIdx]}
+                fill={BOARD_COLOR}
                 stroke={BOARD_STROKE}
                 strokeWidth={0.5}
                 rx={1}
@@ -302,12 +302,8 @@ const FloorPlanSVG = ({ result, ancho, largo, cover }: FloorPlanSVGProps) => {
         {/* Board legend */}
         <div className="flex items-center justify-center flex-wrap gap-4 mt-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-5 h-3 rounded-sm" style={{ background: BOARD_COLORS[0], border: `1px solid ${BOARD_STROKE}` }} />
-            Tabla (par)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-5 h-3 rounded-sm" style={{ background: BOARD_COLORS[1], border: `1px solid ${BOARD_STROKE}` }} />
-            Tabla (impar)
+            <span className="inline-block w-5 h-3 rounded-sm" style={{ background: BOARD_COLOR, border: `1px solid ${BOARD_STROKE}` }} />
+            Tablas
           </span>
           {cover && (cover.ancho1 || cover.ancho2 || cover.largo1 || cover.largo2) && (
             <span className="flex items-center gap-1.5">
