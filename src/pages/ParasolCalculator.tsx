@@ -5,11 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ArrowLeft, Calculator, Download } from "lucide-react";
+import { ArrowLeft, Calculator, Download, RotateCw, Info } from "lucide-react";
 import jsPDF from "jspdf";
 
 // ─── Types ───────────────────────────────────────────────────────
-type MountType = "piso-techo" | "lateral";
+type MountType = "piso-techo" | "lateral" | "giratorio";
 
 interface BeamSize {
   label: string;
@@ -25,15 +25,22 @@ const BEAM_SIZES: BeamSize[] = [
   { label: "50 × 100 mm", w: 50, h: 100 },
 ];
 
+const BEAM_STOCK_LENGTH = 2900; // mm
+
 // ─── Calculation ─────────────────────────────────────────────────
 interface ParasolResult {
   cantVigas: number;
+  vigasPorUnidad: number; // how many beams cut from each 2.9m stock
+  stockUnits: number; // how many 2.9m pieces to buy
   mlVigas: number;
   cantTubosHierro: number;
   mlTubosHierro: number;
   cantPlanchuelas: number;
+  cantPivotes: number;
   cantTornillos: number;
   separacionReal: number;
+  maxGapCiega: number; // only for giratorio
+  puedeSerCiega: boolean;
 }
 
 function calcParasol(
@@ -43,38 +50,61 @@ function calcParasol(
   gapMm: number,
   mount: MountType
 ): ParasolResult {
-  // The dimension along which beams are distributed
-  const distDim = mount === "piso-techo" ? anchoMm : altoMm;
-  // The length of each beam
-  const beamLength = mount === "piso-techo" ? altoMm : anchoMm;
+  const isGiratorio = mount === "giratorio";
+  // Giratorio is always piso-techo style (vertical beams)
+  const isVertical = mount === "piso-techo" || mount === "giratorio";
+
+  const distDim = isVertical ? anchoMm : altoMm;
+  const beamLengthMm = isVertical ? altoMm : anchoMm;
 
   const pitch = beam.w + gapMm;
   const cantVigas = Math.floor(distDim / pitch) + 1;
 
-  // Actual remaining gap after distributing
   const usedWidth = cantVigas * beam.w + (cantVigas - 1) * gapMm;
   const separacionReal = cantVigas > 1 ? gapMm + (distDim - usedWidth) / (cantVigas - 1) : gapMm;
 
-  const mlVigas = cantVigas * (beamLength / 1000);
+  // How many beams per stock piece
+  const vigasPorUnidad = Math.floor(BEAM_STOCK_LENGTH / beamLengthMm);
+  const stockUnits = vigasPorUnidad > 0 ? Math.ceil(cantVigas / vigasPorUnidad) : cantVigas;
 
-  // Structure: 2 iron tubes (top+bottom or left+right) spanning the distribution dimension
-  const cantTubosHierro = 2;
-  const mlTubosHierro = cantTubosHierro * (distDim / 1000);
+  const mlVigas = cantVigas * (beamLengthMm / 1000);
 
-  // 2 planchuelas per beam (top+bottom or left+right)
-  const cantPlanchuelas = cantVigas * 2;
+  // Max gap for ciega: beam.h - beam.w (depth - face)
+  const maxGapCiega = beam.h - beam.w;
+  const puedeSerCiega = gapMm <= maxGapCiega;
 
-  // 2 screws per planchuela
-  const cantTornillos = cantPlanchuelas * 2;
+  let cantTubosHierro = 0;
+  let mlTubosHierro = 0;
+  let cantPlanchuelas = 0;
+  let cantPivotes = 0;
+
+  if (isGiratorio) {
+    // No tubes/planchuelas — pivots at top and bottom of each beam
+    cantPivotes = cantVigas * 2;
+    cantTubosHierro = 0;
+    mlTubosHierro = 0;
+    cantPlanchuelas = 0;
+  } else {
+    cantTubosHierro = 2;
+    mlTubosHierro = Math.round(cantTubosHierro * (distDim / 1000) * 100) / 100;
+    cantPlanchuelas = cantVigas * 2;
+  }
+
+  const cantTornillos = isGiratorio ? cantPivotes * 2 : cantPlanchuelas * 2;
 
   return {
     cantVigas,
+    vigasPorUnidad: vigasPorUnidad > 0 ? vigasPorUnidad : 1,
+    stockUnits,
     mlVigas: Math.round(mlVigas * 100) / 100,
     cantTubosHierro,
-    mlTubosHierro: Math.round(mlTubosHierro * 100) / 100,
+    mlTubosHierro,
     cantPlanchuelas,
+    cantPivotes,
     cantTornillos,
     separacionReal: Math.round(separacionReal * 10) / 10,
+    maxGapCiega,
+    puedeSerCiega,
   };
 }
 
@@ -94,7 +124,7 @@ function ParasolScheme({
   mount: MountType;
   result: ParasolResult;
 }) {
-  const padding = 40;
+  const padding = 44;
   const maxSvgW = 500;
   const maxSvgH = 400;
 
@@ -105,77 +135,84 @@ function ParasolScheme({
   const dw = anchoMm * scale;
   const dh = altoMm * scale;
   const svgW = dw + padding * 2;
-  const svgH = dh + padding * 2;
+  const svgH = dh + padding * 2 + 24;
   const ox = padding;
   const oy = padding;
 
-  const beams: { x: number; y: number; w: number; h: number }[] = [];
+  const isVertical = mount === "piso-techo" || mount === "giratorio";
+  const isGiratorio = mount === "giratorio";
 
-  if (mount === "piso-techo") {
-    // Vertical beams distributed along width
-    const pitch = beam.w + gapMm;
+  const beamRects: { x: number; y: number; w: number; h: number }[] = [];
+  const pitch = beam.w + gapMm;
+
+  if (isVertical) {
     for (let i = 0; i < result.cantVigas; i++) {
-      const cx = i * pitch;
-      beams.push({
-        x: ox + cx * scale,
+      beamRects.push({
+        x: ox + i * pitch * scale,
         y: oy,
         w: beam.w * scale,
         h: dh,
       });
     }
   } else {
-    // Horizontal beams distributed along height
-    const pitch = beam.w + gapMm;
     for (let i = 0; i < result.cantVigas; i++) {
-      const cy = i * pitch;
-      beams.push({
+      beamRects.push({
         x: ox,
-        y: oy + cy * scale,
+        y: oy + i * pitch * scale,
         w: dw,
         h: beam.w * scale,
       });
     }
   }
 
-  const ironTubeThickness = 4;
+  const ironT = 4;
+  const pivotR = 3.5;
 
   return (
     <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} className="border rounded-lg bg-muted/30">
-      {/* Iron tubes */}
-      {mount === "piso-techo" ? (
+      {/* Structure / pivots */}
+      {isGiratorio ? (
         <>
-          {/* Top tube */}
-          <rect x={ox - 6} y={oy - ironTubeThickness - 2} width={dw + 12} height={ironTubeThickness} rx={1} fill="hsl(var(--muted-foreground))" opacity={0.6} />
-          {/* Bottom tube */}
-          <rect x={ox - 6} y={oy + dh + 2} width={dw + 12} height={ironTubeThickness} rx={1} fill="hsl(var(--muted-foreground))" opacity={0.6} />
-          {/* Planchuelas at top */}
-          {beams.map((b, i) => (
-            <rect key={`pt-${i}`} x={b.x - 1} y={oy - ironTubeThickness - 6} width={b.w + 2} height={4} fill="hsl(var(--muted-foreground))" opacity={0.4} rx={0.5} />
+          {/* Pivot circles at top and bottom of each beam */}
+          {beamRects.map((b, i) => (
+            <g key={`piv-${i}`}>
+              <circle cx={b.x + b.w / 2} cy={oy - 6} r={pivotR} fill="hsl(var(--foreground))" opacity={0.5} />
+              <circle cx={b.x + b.w / 2} cy={oy + dh + 6} r={pivotR} fill="hsl(var(--foreground))" opacity={0.5} />
+              {/* tiny line connecting pivot to beam */}
+              <line x1={b.x + b.w / 2} y1={oy - 6 + pivotR} x2={b.x + b.w / 2} y2={oy} stroke="hsl(var(--foreground))" strokeWidth={0.5} opacity={0.3} />
+              <line x1={b.x + b.w / 2} y1={oy + dh} x2={b.x + b.w / 2} y2={oy + dh + 6 - pivotR} stroke="hsl(var(--foreground))" strokeWidth={0.5} opacity={0.3} />
+            </g>
           ))}
-          {/* Planchuelas at bottom */}
-          {beams.map((b, i) => (
-            <rect key={`pb-${i}`} x={b.x - 1} y={oy + dh + ironTubeThickness + 2} width={b.w + 2} height={4} fill="hsl(var(--muted-foreground))" opacity={0.4} rx={0.5} />
+          {/* Floor/ceiling lines */}
+          <line x1={ox - 8} y1={oy - 10} x2={ox + dw + 8} y2={oy - 10} stroke="hsl(var(--muted-foreground))" strokeWidth={1} opacity={0.4} />
+          <line x1={ox - 8} y1={oy + dh + 10} x2={ox + dw + 8} y2={oy + dh + 10} stroke="hsl(var(--muted-foreground))" strokeWidth={1} opacity={0.4} />
+        </>
+      ) : isVertical ? (
+        <>
+          <rect x={ox - 6} y={oy - ironT - 2} width={dw + 12} height={ironT} rx={1} fill="hsl(var(--muted-foreground))" opacity={0.6} />
+          <rect x={ox - 6} y={oy + dh + 2} width={dw + 12} height={ironT} rx={1} fill="hsl(var(--muted-foreground))" opacity={0.6} />
+          {beamRects.map((b, i) => (
+            <rect key={`pt-${i}`} x={b.x - 1} y={oy - ironT - 6} width={b.w + 2} height={4} fill="hsl(var(--muted-foreground))" opacity={0.4} rx={0.5} />
+          ))}
+          {beamRects.map((b, i) => (
+            <rect key={`pb-${i}`} x={b.x - 1} y={oy + dh + ironT + 2} width={b.w + 2} height={4} fill="hsl(var(--muted-foreground))" opacity={0.4} rx={0.5} />
           ))}
         </>
       ) : (
         <>
-          {/* Left tube */}
-          <rect x={ox - ironTubeThickness - 2} y={oy - 6} width={ironTubeThickness} height={dh + 12} rx={1} fill="hsl(var(--muted-foreground))" opacity={0.6} />
-          {/* Right tube */}
-          <rect x={ox + dw + 2} y={oy - 6} width={ironTubeThickness} height={dh + 12} rx={1} fill="hsl(var(--muted-foreground))" opacity={0.6} />
-          {/* Planchuelas left */}
-          {beams.map((b, i) => (
-            <rect key={`pl-${i}`} x={ox - ironTubeThickness - 6} y={b.y - 1} width={4} height={b.h + 2} fill="hsl(var(--muted-foreground))" opacity={0.4} rx={0.5} />
+          <rect x={ox - ironT - 2} y={oy - 6} width={ironT} height={dh + 12} rx={1} fill="hsl(var(--muted-foreground))" opacity={0.6} />
+          <rect x={ox + dw + 2} y={oy - 6} width={ironT} height={dh + 12} rx={1} fill="hsl(var(--muted-foreground))" opacity={0.6} />
+          {beamRects.map((b, i) => (
+            <rect key={`pl-${i}`} x={ox - ironT - 6} y={b.y - 1} width={4} height={b.h + 2} fill="hsl(var(--muted-foreground))" opacity={0.4} rx={0.5} />
           ))}
-          {/* Planchuelas right */}
-          {beams.map((b, i) => (
-            <rect key={`pr-${i}`} x={ox + dw + ironTubeThickness + 2} y={b.y - 1} width={4} height={b.h + 2} fill="hsl(var(--muted-foreground))" opacity={0.4} rx={0.5} />
+          {beamRects.map((b, i) => (
+            <rect key={`pr-${i}`} x={ox + dw + ironT + 2} y={b.y - 1} width={4} height={b.h + 2} fill="hsl(var(--muted-foreground))" opacity={0.4} rx={0.5} />
           ))}
         </>
       )}
 
       {/* WPC Beams */}
-      {beams.map((b, i) => (
+      {beamRects.map((b, i) => (
         <rect
           key={`beam-${i}`}
           x={b.x}
@@ -201,10 +238,19 @@ function ParasolScheme({
       {/* Legend */}
       <rect x={ox} y={svgH - 18} width={10} height={6} fill="hsl(var(--primary))" opacity={0.7} rx={1} />
       <text x={ox + 14} y={svgH - 12} fontSize={9} fill="hsl(var(--muted-foreground))">Vigas WPC</text>
-      <rect x={ox + 90} y={svgH - 18} width={10} height={6} fill="hsl(var(--muted-foreground))" opacity={0.6} rx={1} />
-      <text x={ox + 104} y={svgH - 12} fontSize={9} fill="hsl(var(--muted-foreground))">Tubos H°</text>
-      <rect x={ox + 170} y={svgH - 18} width={10} height={6} fill="hsl(var(--muted-foreground))" opacity={0.4} rx={1} />
-      <text x={ox + 184} y={svgH - 12} fontSize={9} fill="hsl(var(--muted-foreground))">Planchuelas</text>
+      {isGiratorio ? (
+        <>
+          <circle cx={ox + 98} cy={svgH - 15} r={3} fill="hsl(var(--foreground))" opacity={0.5} />
+          <text x={ox + 106} y={svgH - 12} fontSize={9} fill="hsl(var(--muted-foreground))">Pivotes</text>
+        </>
+      ) : (
+        <>
+          <rect x={ox + 90} y={svgH - 18} width={10} height={6} fill="hsl(var(--muted-foreground))" opacity={0.6} rx={1} />
+          <text x={ox + 104} y={svgH - 12} fontSize={9} fill="hsl(var(--muted-foreground))">Tubos H°</text>
+          <rect x={ox + 170} y={svgH - 18} width={10} height={6} fill="hsl(var(--muted-foreground))" opacity={0.4} rx={1} />
+          <text x={ox + 184} y={svgH - 12} fontSize={9} fill="hsl(var(--muted-foreground))">Planchuelas</text>
+        </>
+      )}
     </svg>
   );
 }
@@ -235,19 +281,23 @@ function exportParasolPDF(
   doc.setFontSize(9);
   doc.text(today, w - 14, 16, { align: "right" });
 
+  const mountLabel = mount === "piso-techo" ? "Piso y Techo (fija)" : mount === "lateral" ? "Lateral (fija)" : "Giratorio (pivotes)";
+
   // Config
   let y = 44;
   doc.setTextColor(40, 40, 40);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("Datos del Proyecto", 14, y);
-  y += 8;
+  doc.text("Datos del Proyecto", 14, y); y += 8;
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   doc.text(`Abertura: ${anchoMm} mm × ${altoMm} mm`, 14, y); y += 6;
-  doc.text(`Viga WPC: ${beam.label} (vista ${beam.w} mm)`, 14, y); y += 6;
-  doc.text(`Separación: ${gapMm} mm`, 14, y); y += 6;
-  doc.text(`Tipo de agarre: ${mount === "piso-techo" ? "Piso y Techo" : "Lateral"}`, 14, y); y += 12;
+  doc.text(`Viga WPC: ${beam.label} (vista ${beam.w} mm) — Largo stock: ${BEAM_STOCK_LENGTH} mm`, 14, y); y += 6;
+  doc.text(`Separación: ${gapMm} mm | Tipo: ${mountLabel}`, 14, y); y += 6;
+  if (mount === "giratorio") {
+    doc.text(`Cierre completo: ${result.puedeSerCiega ? "Sí" : "No"} (máx. gap ciega: ${result.maxGapCiega} mm)`, 14, y); y += 6;
+  }
+  y += 6;
 
   // Materials table
   doc.setFont("helvetica", "bold");
@@ -257,10 +307,15 @@ function exportParasolPDF(
   const rows: string[][] = [
     ["Material", "Cantidad"],
     ["Vigas WPC", `${result.cantVigas} un. (${result.mlVigas} ml)`],
-    ["Tubos de hierro", `${result.cantTubosHierro} un. (${result.mlTubosHierro} ml)`],
-    ["Planchuelas H°", `${result.cantPlanchuelas} un.`],
-    ["Tornillos", `${result.cantTornillos} un.`],
+    ["Vigas de 2.9m a comprar", `${result.stockUnits} un. (${result.vigasPorUnidad} cortes/viga)`],
   ];
+  if (mount === "giratorio") {
+    rows.push(["Pivotes (piso/techo)", `${result.cantPivotes} un.`]);
+  } else {
+    rows.push(["Tubos de hierro", `${result.cantTubosHierro} un. (${result.mlTubosHierro} ml)`]);
+    rows.push(["Planchuelas H°", `${result.cantPlanchuelas} un.`]);
+  }
+  rows.push(["Tornillos", `${result.cantTornillos} un.`]);
 
   doc.setFontSize(10);
   const colX = [14, w - 14];
@@ -292,31 +347,33 @@ function exportParasolPDF(
 
   const maxDW = w - 28;
   const maxDH = 100;
-  const scaleX = maxDW / (anchoMm / 1000);
-  const scaleY = maxDH / (altoMm / 1000);
-  const scale = Math.min(scaleX, scaleY);
-  const anchoM = anchoMm / 1000;
-  const altoM = altoMm / 1000;
-  const dw2 = anchoM * scale;
-  const dh2 = altoM * scale;
+  const sX = maxDW / (anchoMm / 1000);
+  const sY = maxDH / (altoMm / 1000);
+  const sc = Math.min(sX, sY);
+  const dw2 = (anchoMm / 1000) * sc;
+  const dh2 = (altoMm / 1000) * sc;
   const ox = 14 + (maxDW - dw2) / 2;
   const oy = y;
 
-  // Draw beams
-  const pitch = (beam.w + gapMm) / 1000;
+  const pitchM = (beam.w + gapMm) / 1000;
   const beamWm = beam.w / 1000;
+  const isVertical = mount !== "lateral";
 
-  if (mount === "piso-techo") {
-    // Structure tubes
+  if (isVertical) {
     doc.setDrawColor(80, 80, 80);
     doc.setLineWidth(0.8);
     doc.line(ox - 2, oy, ox + dw2 + 2, oy);
     doc.line(ox - 2, oy + dh2, ox + dw2 + 2, oy + dh2);
 
     for (let i = 0; i < result.cantVigas; i++) {
-      const bx = ox + i * pitch * scale;
+      const bx = ox + i * pitchM * sc;
       doc.setFillColor(0, 133, 119);
-      doc.rect(bx, oy + 1, beamWm * scale, dh2 - 2, "F");
+      doc.rect(bx, oy + 1, beamWm * sc, dh2 - 2, "F");
+      if (mount === "giratorio") {
+        doc.setFillColor(60, 60, 60);
+        doc.circle(bx + (beamWm * sc) / 2, oy - 1, 0.8, "F");
+        doc.circle(bx + (beamWm * sc) / 2, oy + dh2 + 1, 0.8, "F");
+      }
     }
   } else {
     doc.setDrawColor(80, 80, 80);
@@ -325,26 +382,26 @@ function exportParasolPDF(
     doc.line(ox + dw2, oy - 2, ox + dw2, oy + dh2 + 2);
 
     for (let i = 0; i < result.cantVigas; i++) {
-      const by = oy + i * pitch * scale;
+      const by = oy + i * pitchM * sc;
       doc.setFillColor(0, 133, 119);
-      doc.rect(ox + 1, by, dw2 - 2, beamWm * scale, "F");
+      doc.rect(ox + 1, by, dw2 - 2, beamWm * sc, "F");
     }
   }
 
-  // Dimension labels
   doc.setFontSize(8);
   doc.setTextColor(60, 60, 60);
   doc.setFont("helvetica", "normal");
   doc.text(`${anchoMm} mm`, ox + dw2 / 2, oy - 6, { align: "center" });
   doc.text(`${altoMm} mm`, ox - 6, oy + dh2 / 2, { align: "center", angle: 90 });
 
-  // Legend
   y = oy + dh2 + 10;
   doc.setFontSize(7);
   doc.setTextColor(100, 100, 100);
-  doc.text("█ Vigas WPC    ── Tubos H°    Sep. real: " + result.separacionReal + " mm", ox, y);
+  const legendText = mount === "giratorio"
+    ? "█ Vigas WPC    ● Pivotes    Sep. real: " + result.separacionReal + " mm"
+    : "█ Vigas WPC    ── Tubos H°    Sep. real: " + result.separacionReal + " mm";
+  doc.text(legendText, ox, y);
 
-  // Footer
   y += 12;
   doc.setFontSize(8);
   doc.setTextColor(120, 120, 120);
@@ -365,7 +422,11 @@ const ParasolCalculator = () => {
   const beam = BEAM_SIZES[beamIdx];
   const anchoMm = parseFloat(anchoStr) || 0;
   const altoMm = parseFloat(altoStr) || 0;
-  const defaultGap = beam.w;
+
+  // For giratorio: default gap = depth - face (max to allow full closure)
+  const defaultGapFixed = beam.w;
+  const defaultGapGiratorio = beam.h - beam.w;
+  const defaultGap = mount === "giratorio" ? defaultGapGiratorio : defaultGapFixed;
   const gapMm = gapStr === "" ? defaultGap : parseFloat(gapStr) || 0;
 
   const result = useMemo(() => {
@@ -395,15 +456,20 @@ const ParasolCalculator = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Dimensiones de la abertura</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-xs">Ancho (mm)</Label>
-              <Input type="number" value={anchoStr} onChange={(e) => setAnchoStr(e.target.value)} min={100} />
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs">Ancho (mm)</Label>
+                <Input type="number" value={anchoStr} onChange={(e) => setAnchoStr(e.target.value)} min={100} />
+              </div>
+              <div>
+                <Label className="text-xs">Alto (mm)</Label>
+                <Input type="number" value={altoStr} onChange={(e) => setAltoStr(e.target.value)} min={100} />
+              </div>
             </div>
-            <div>
-              <Label className="text-xs">Alto (mm)</Label>
-              <Input type="number" value={altoStr} onChange={(e) => setAltoStr(e.target.value)} min={100} />
-            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Largo de viga disponible: <span className="font-semibold">{BEAM_STOCK_LENGTH} mm (2.9 m)</span>
+            </p>
           </CardContent>
         </Card>
 
@@ -416,9 +482,8 @@ const ParasolCalculator = () => {
             <RadioGroup
               value={String(beamIdx)}
               onValueChange={(v) => {
-                const idx = Number(v);
-                setBeamIdx(idx);
-                setGapStr(""); // reset gap to default
+                setBeamIdx(Number(v));
+                setGapStr("");
               }}
               className="grid grid-cols-2 sm:grid-cols-3 gap-2"
             >
@@ -430,9 +495,48 @@ const ParasolCalculator = () => {
                   }`}
                 >
                   <RadioGroupItem value={String(i)} />
-                  <span className="text-sm font-medium">{b.label}</span>
+                  <div>
+                    <span className="text-sm font-medium">{b.label}</span>
+                    <span className="block text-[10px] text-muted-foreground">Vista: {b.w} mm · Prof: {b.h} mm</span>
+                  </div>
                 </Label>
               ))}
+            </RadioGroup>
+          </CardContent>
+        </Card>
+
+        {/* Mount type */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Tipo de agarre</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <RadioGroup
+              value={mount}
+              onValueChange={(v) => {
+                setMount(v as MountType);
+                setGapStr("");
+              }}
+              className="grid grid-cols-1 sm:grid-cols-3 gap-3"
+            >
+              <Label className={`flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-colors ${mount === "piso-techo" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
+                <RadioGroupItem value="piso-techo" />
+                <span className="text-sm font-semibold">Piso y Techo</span>
+                <span className="text-xs text-muted-foreground text-center">Vigas verticales fijas con planchuelas</span>
+              </Label>
+              <Label className={`flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-colors ${mount === "lateral" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
+                <RadioGroupItem value="lateral" />
+                <span className="text-sm font-semibold">Lateral</span>
+                <span className="text-xs text-muted-foreground text-center">Vigas horizontales fijas a los costados</span>
+              </Label>
+              <Label className={`flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-colors ${mount === "giratorio" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
+                <RadioGroupItem value="giratorio" />
+                <div className="flex items-center gap-1.5">
+                  <RotateCw className="w-4 h-4" />
+                  <span className="text-sm font-semibold">Giratorio</span>
+                </div>
+                <span className="text-xs text-muted-foreground text-center">Pivotes piso/techo, giro 360°, abierto o ciego</span>
+              </Label>
             </RadioGroup>
           </CardContent>
         </Card>
@@ -450,35 +554,30 @@ const ParasolCalculator = () => {
                   type="number"
                   value={gapStr}
                   onChange={(e) => setGapStr(e.target.value)}
-                  placeholder={`${defaultGap} (estándar)`}
-                  min={5}
+                  placeholder={`${defaultGap} (${mount === "giratorio" ? "máx. ciega" : "estándar"})`}
+                  min={1}
                 />
               </div>
-              <p className="text-xs text-muted-foreground mt-4">
-                Estándar: {defaultGap} mm (igual a la vista)
-              </p>
+              <div className="text-xs text-muted-foreground mt-4 space-y-1">
+                {mount === "giratorio" ? (
+                  <>
+                    <p>Máx. para cierre total: <span className="font-semibold">{defaultGapGiratorio} mm</span></p>
+                    <p className="text-[10px]">(profundidad {beam.h} − vista {beam.w})</p>
+                  </>
+                ) : (
+                  <p>Estándar: {defaultGapFixed} mm (igual a la vista)</p>
+                )}
+              </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Mount type */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Tipo de agarre</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RadioGroup value={mount} onValueChange={(v) => setMount(v as MountType)} className="grid grid-cols-2 gap-3">
-              <Label className={`flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-colors ${mount === "piso-techo" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
-                <RadioGroupItem value="piso-techo" />
-                <span className="text-sm font-semibold">Piso y Techo</span>
-                <span className="text-xs text-muted-foreground text-center">Vigas verticales con estructura arriba y abajo</span>
-              </Label>
-              <Label className={`flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-colors ${mount === "lateral" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
-                <RadioGroupItem value="lateral" />
-                <span className="text-sm font-semibold">Lateral</span>
-                <span className="text-xs text-muted-foreground text-center">Vigas horizontales con estructura a los costados</span>
-              </Label>
-            </RadioGroup>
+            {mount === "giratorio" && gapMm > defaultGapGiratorio && (
+              <div className="mt-3 flex items-start gap-2 p-2.5 rounded-md bg-destructive/10 border border-destructive/20">
+                <Info className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                <p className="text-xs text-destructive">
+                  Con {gapMm} mm de separación y viga {beam.label}, <strong>no se puede lograr cierre completo</strong>. Máximo: {defaultGapGiratorio} mm.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -499,20 +598,49 @@ const ParasolCalculator = () => {
                     <p className="text-xs text-muted-foreground">Vigas WPC</p>
                     <p className="text-xs font-medium">{result.mlVigas} ml</p>
                   </div>
-                  <div className="bg-muted rounded-lg p-3 text-center">
-                    <p className="text-2xl font-bold text-foreground">{result.cantTubosHierro}</p>
-                    <p className="text-xs text-muted-foreground">Tubos de hierro</p>
-                    <p className="text-xs font-medium">{result.mlTubosHierro} ml</p>
+                  <div className="bg-primary/5 rounded-lg p-3 text-center">
+                    <p className="text-2xl font-bold text-primary">{result.stockUnits}</p>
+                    <p className="text-xs text-muted-foreground">Vigas de 2.9m a comprar</p>
+                    <p className="text-xs font-medium">{result.vigasPorUnidad} corte{result.vigasPorUnidad > 1 ? "s" : ""}/viga</p>
                   </div>
-                  <div className="bg-muted rounded-lg p-3 text-center">
-                    <p className="text-2xl font-bold text-foreground">{result.cantPlanchuelas}</p>
-                    <p className="text-xs text-muted-foreground">Planchuelas H°</p>
-                  </div>
-                  <div className="bg-muted rounded-lg p-3 text-center">
+
+                  {mount === "giratorio" ? (
+                    <div className="bg-muted rounded-lg p-3 text-center col-span-2">
+                      <p className="text-2xl font-bold text-foreground">{result.cantPivotes}</p>
+                      <p className="text-xs text-muted-foreground">Pivotes (piso + techo)</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="bg-muted rounded-lg p-3 text-center">
+                        <p className="text-2xl font-bold text-foreground">{result.cantTubosHierro}</p>
+                        <p className="text-xs text-muted-foreground">Tubos de hierro</p>
+                        <p className="text-xs font-medium">{result.mlTubosHierro} ml</p>
+                      </div>
+                      <div className="bg-muted rounded-lg p-3 text-center">
+                        <p className="text-2xl font-bold text-foreground">{result.cantPlanchuelas}</p>
+                        <p className="text-xs text-muted-foreground">Planchuelas H°</p>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="bg-muted rounded-lg p-3 text-center col-span-2 sm:col-span-1">
                     <p className="text-2xl font-bold text-foreground">{result.cantTornillos}</p>
                     <p className="text-xs text-muted-foreground">Tornillos</p>
                   </div>
                 </div>
+
+                {mount === "giratorio" && (
+                  <div className={`mt-3 flex items-start gap-2 p-2.5 rounded-md ${result.puedeSerCiega ? "bg-primary/5 border border-primary/20" : "bg-destructive/10 border border-destructive/20"}`}>
+                    <RotateCw className={`w-4 h-4 shrink-0 mt-0.5 ${result.puedeSerCiega ? "text-primary" : "text-destructive"}`} />
+                    <p className="text-xs">
+                      {result.puedeSerCiega
+                        ? <>Con esta configuración las vigas <strong>pueden cerrarse completamente</strong> (ciega).</>
+                        : <>Con esta separación <strong>no se logra cierre total</strong>. Reducir gap a ≤ {result.maxGapCiega} mm.</>
+                      }
+                    </p>
+                  </div>
+                )}
+
                 {result.separacionReal !== gapMm && (
                   <p className="text-xs text-muted-foreground mt-3">
                     Separación real ajustada: <span className="font-semibold">{result.separacionReal} mm</span>
