@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { Layers, ArrowUpRight, Fence, Umbrella, Wallpaper, SquareStack, ArrowRight } from "lucide-react";
+import { Layers, ArrowUpRight, Fence, Umbrella, Wallpaper, SquareStack, ArrowRight, Boxes } from "lucide-react";
 
 const cotizadores = [
   {
@@ -9,6 +9,14 @@ const cotizadores = [
     description: "Calculá materiales para decks de exterior e interior",
     icon: Layers,
     route: "/decks",
+    active: true,
+  },
+  {
+    id: "pedraflex",
+    title: "Pedraflex",
+    description: "Calculá placas, adhesivos y esquemas de colocación",
+    icon: Boxes,
+    route: "/pedraflex",
     active: true,
   },
   {
