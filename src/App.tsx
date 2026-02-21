@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import DeckCalculator from "./pages/DeckCalculator";
 import PedraflexCalculator from "./pages/PedraflexCalculator";
 import ParasolCalculator from "./pages/ParasolCalculator";
+import RevestimientosCalculator from "./pages/RevestimientosCalculator";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/decks" element={<DeckCalculator />} />
           <Route path="/pedraflex" element={<PedraflexCalculator />} />
           <Route path="/parasoles" element={<ParasolCalculator />} />
+          <Route path="/revestimientos" element={<RevestimientosCalculator />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
