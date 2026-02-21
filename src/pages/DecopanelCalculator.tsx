@@ -36,82 +36,149 @@ const HEIGHT_M = 2.9;
 let uidCounter = 0;
 const genUid = () => `p-${++uidCounter}-${Date.now()}`;
 
+// ─── Draw schema in PDF ──────────────────────────────────────────
+function drawSchemaPDF(
+  doc: jsPDF,
+  panels: string[],
+  panelMap: Record<string, PanelType>,
+  startY: number,
+  pageWidth: number
+): number {
+  const totalCm = panels.reduce((s, id) => s + (panelMap[id]?.widthCm || 0), 0);
+  if (totalCm <= 0) return startY;
+
+  const margin = 14;
+  const drawW = pageWidth - margin * 2;
+  const drawH = 30;
+  let x = margin;
+  const y = startY;
+
+  // Border
+  doc.setDrawColor(180, 180, 180);
+  doc.setLineWidth(0.3);
+  doc.rect(margin, y, drawW, drawH);
+
+  panels.forEach((id) => {
+    const pt = panelMap[id];
+    if (!pt) return;
+    const w = (pt.widthCm / totalCm) * drawW;
+
+    // Fill
+    if (pt.pattern === "varillado") {
+      doc.setFillColor(210, 190, 170);
+    } else if (pt.widthCm === 120) {
+      doc.setFillColor(185, 175, 165);
+    } else if (pt.widthCm === 60) {
+      doc.setFillColor(200, 188, 178);
+    } else {
+      doc.setFillColor(215, 205, 195);
+    }
+    doc.rect(x, y, w, drawH, "F");
+
+    // Varillado lines
+    if (pt.pattern === "varillado" && w > 3) {
+      doc.setDrawColor(160, 140, 120);
+      doc.setLineWidth(0.15);
+      const lines = Math.max(2, Math.floor(w / 2));
+      for (let l = 1; l < lines; l++) {
+        const lx = x + (l / lines) * w;
+        doc.line(lx, y + 2, lx, y + drawH - 2);
+      }
+    }
+
+    // Separator line
+    doc.setDrawColor(140, 140, 140);
+    doc.setLineWidth(0.2);
+    doc.line(x + w, y, x + w, y + drawH);
+
+    // Width label
+    doc.setFontSize(7);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`${pt.widthCm}`, x + w / 2, y + drawH + 4, { align: "center" });
+
+    x += w;
+  });
+
+  // Dimension line below
+  doc.setDrawColor(100, 100, 100);
+  doc.setLineWidth(0.3);
+  const dimY = y + drawH + 7;
+  doc.line(margin, dimY, margin + drawW, dimY);
+  doc.line(margin, dimY - 1.5, margin, dimY + 1.5);
+  doc.line(margin + drawW, dimY - 1.5, margin + drawW, dimY + 1.5);
+  doc.setFontSize(8);
+  doc.setTextColor(60, 60, 60);
+  doc.text(`${totalCm} cm`, margin + drawW / 2, dimY + 4, { align: "center" });
+
+  return dimY + 8;
+}
+
 // ─── Suggestion generator ────────────────────────────────────────
 function generateSuggestions(wallCm: number): { name: string; panels: string[] }[] {
   if (wallCm <= 0) return [];
-  const suggestions: { name: string; panels: string[] }[] = [];
+  const results: { name: string; panels: string[]; diff: number }[] = [];
 
-  // Helper: fill wall with a single panel type
-  const fillWith = (typeId: string, widthCm: number): string[] | null => {
-    const count = Math.floor(wallCm / widthCm);
-    if (count <= 0) return null;
-    if (Math.abs(count * widthCm - wallCm) <= 5) return Array(count).fill(typeId);
-    return null;
+  const tryCombo = (name: string, panelIds: { id: string; w: number }[]) => {
+    // Try best fit with these panel types
+    let remaining = wallCm;
+    const panels: string[] = [];
+
+    // Sort by width descending for greedy fill
+    const sorted = [...panelIds].sort((a, b) => b.w - a.w);
+    for (const p of sorted) {
+      const count = Math.floor(remaining / p.w);
+      for (let i = 0; i < count; i++) panels.push(p.id);
+      remaining -= count * p.w;
+    }
+
+    if (panels.length > 0 && remaining <= wallCm * 0.1) {
+      results.push({ name, panels, diff: Math.abs(remaining) });
+    }
   };
 
-  // 1) All 120cm
-  const all120 = fillWith("liso120", 120);
-  if (all120) suggestions.push({ name: "Todo Liso 120cm", panels: all120 });
+  // Single type fills
+  tryCombo("Todo Liso 120cm", [{ id: "liso120", w: 120 }]);
+  tryCombo("Todo Liso 60cm", [{ id: "liso60", w: 60 }]);
+  tryCombo("Todo Liso 20cm", [{ id: "liso20", w: 20 }]);
+  tryCombo("Todo Varillado 25cm", [{ id: "varillado25", w: 25 }]);
 
-  // 2) All 60cm
-  const all60 = fillWith("liso60", 60);
-  if (all60) suggestions.push({ name: "Todo Liso 60cm", panels: all60 });
+  // Two-type combos
+  tryCombo("Liso 120 + 60", [{ id: "liso120", w: 120 }, { id: "liso60", w: 60 }]);
+  tryCombo("Liso 120 + 20", [{ id: "liso120", w: 120 }, { id: "liso20", w: 20 }]);
+  tryCombo("Liso 60 + 20", [{ id: "liso60", w: 60 }, { id: "liso20", w: 20 }]);
+  tryCombo("Liso 120 + Varillado", [{ id: "liso120", w: 120 }, { id: "varillado25", w: 25 }]);
+  tryCombo("Liso 60 + Varillado", [{ id: "liso60", w: 60 }, { id: "varillado25", w: 25 }]);
+  tryCombo("Liso 20 + Varillado", [{ id: "liso20", w: 20 }, { id: "varillado25", w: 25 }]);
 
-  // 3) All varillado
-  const allVar = fillWith("varillado25", 25);
-  if (allVar) suggestions.push({ name: "Todo Varillado", panels: allVar });
+  // Three-type combos
+  tryCombo("Liso 120 + 60 + 20", [{ id: "liso120", w: 120 }, { id: "liso60", w: 60 }, { id: "liso20", w: 20 }]);
+  tryCombo("Liso 120 + 60 + Varillado", [{ id: "liso120", w: 120 }, { id: "liso60", w: 60 }, { id: "varillado25", w: 25 }]);
 
-  // 4) Mix 120 + 60
-  {
-    const n120 = Math.floor(wallCm / 120);
-    const rem = wallCm - n120 * 120;
-    const n60 = Math.round(rem / 60);
-    if (n120 > 0 && n60 > 0 && Math.abs(n120 * 120 + n60 * 60 - wallCm) <= 5) {
-      const p: string[] = [];
-      for (let i = 0; i < n120; i++) p.push("liso120");
-      for (let i = 0; i < n60; i++) p.push("liso60");
-      suggestions.push({ name: "Liso 120 + 60", panels: p });
-    }
-  }
-
-  // 5) Mix 60 + varillado
-  {
-    const n60 = Math.floor(wallCm / 60);
-    const rem = wallCm - n60 * 60;
-    const nVar = Math.round(rem / 25);
-    if (n60 > 0 && nVar > 0 && Math.abs(n60 * 60 + nVar * 25 - wallCm) <= 5) {
-      const p: string[] = [];
-      for (let i = 0; i < n60; i++) p.push("liso60");
-      for (let i = 0; i < nVar; i++) p.push("varillado25");
-      suggestions.push({ name: "Liso 60 + Varillado", panels: p });
-    }
-  }
-
-  // 6) Alternating 60 + varillado
+  // Alternating pattern
   {
     const unitW = 60 + 25;
     const units = Math.floor(wallCm / unitW);
-    if (units >= 2 && Math.abs(units * unitW - wallCm) <= 10) {
+    const rem = wallCm - units * unitW;
+    if (units >= 2 && rem <= wallCm * 0.1) {
       const p: string[] = [];
       for (let i = 0; i < units; i++) { p.push("liso60"); p.push("varillado25"); }
-      suggestions.push({ name: "Alternado 60/Varillado", panels: p });
+      // Fill remainder with liso20
+      const n20 = Math.round(rem / 20);
+      for (let i = 0; i < n20; i++) p.push("liso20");
+      results.push({ name: "Alternado 60/Varillado", panels: p, diff: Math.abs(rem - n20 * 20) });
     }
   }
 
-  // 7) Mix 120 + varillado
-  {
-    const n120 = Math.floor(wallCm / 120);
-    const rem = wallCm - n120 * 120;
-    const nVar = Math.round(rem / 25);
-    if (n120 > 0 && nVar > 0 && Math.abs(n120 * 120 + nVar * 25 - wallCm) <= 5) {
-      const p: string[] = [];
-      for (let i = 0; i < n120; i++) p.push("liso120");
-      for (let i = 0; i < nVar; i++) p.push("varillado25");
-      suggestions.push({ name: "Liso 120 + Varillado", panels: p });
-    }
-  }
+  // Dedupe by name, sort by best fit, ensure at least unique combos
+  const seen = new Set<string>();
+  const unique = results.filter((r) => {
+    if (seen.has(r.name)) return false;
+    seen.add(r.name);
+    return true;
+  });
 
-  return suggestions.slice(0, 5);
+  unique.sort((a, b) => a.diff - b.diff);
+  return unique.slice(0, 6);
 }
 
 // ─── Component ───────────────────────────────────────────────────
@@ -281,8 +348,13 @@ const DecopanelCalculator = () => {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(`Ancho de pared: ${wallWidth} m (${wallCm} cm)`, 14, y); y += 6;
-    doc.text(`Alto: ${HEIGHT_M} m`, 14, y); y += 6;
-    doc.text(`Cobertura: ${totalCm} cm`, 14, y); y += 10;
+    doc.text(`Alto: ${HEIGHT_M} m`, 14, y); y += 10;
+
+    // Draw visual schema
+    doc.setFont("helvetica", "bold");
+    doc.text("Esquema", 14, y); y += 6;
+    y = drawSchemaPDF(doc, s.panels, panelMap, y, pw);
+    y += 6;
 
     doc.setFont("helvetica", "bold");
     doc.text("Materiales", 14, y); y += 8;
@@ -348,6 +420,13 @@ const DecopanelCalculator = () => {
     doc.setFont("helvetica", "normal");
     doc.text(`Ancho de pared: ${wallWidth} m (${wallCm} cm)`, 14, y); y += 6;
     doc.text(`Alto: ${HEIGHT_M} m`, 14, y); y += 10;
+
+    // Draw visual schema
+    doc.setFont("helvetica", "bold");
+    doc.text("Esquema", 14, y); y += 6;
+    const placedTypeIds = placed.map((p) => p.typeId);
+    y = drawSchemaPDF(doc, placedTypeIds, panelMap, y, pw);
+    y += 6;
 
     doc.setFont("helvetica", "bold");
     doc.text("Materiales", 14, y); y += 8;
