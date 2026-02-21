@@ -85,7 +85,7 @@ const Index = () => {
           </button>
           <div>
             <h1 className="text-xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>FLOORTEK</h1>
-            <p className="text-xs text-primary-foreground/70">Calculadora Técnica de Decks</p>
+            <p className="text-xs text-primary-foreground/70">Cotizador de Decks</p>
           </div>
         </div>
       </header>
