@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, Wand2, Trash2, GripVertical } from "lucide-react";
+import { ArrowLeft, Download, Wand2, Trash2, GripVertical, Check } from "lucide-react";
 import jsPDF from "jspdf";
 
 // ─── Panel data ──────────────────────────────────────────────────
@@ -121,6 +121,7 @@ const DecopanelCalculator = () => {
   const [wallWidth, setWallWidth] = useState("");
   const [placed, setPlaced] = useState<PlacedPanel[]>([]);
   const [defaultUnion, setDefaultUnion] = useState<UnionType>("invisible");
+  const [selectedSuggestion, setSelectedSuggestion] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const dragItem = useRef<{ fromPalette: boolean; typeId: string; idx?: number } | null>(null);
 
@@ -228,9 +229,76 @@ const DecopanelCalculator = () => {
 
   const clearAll = () => setPlaced([]);
 
-  const applySuggestion = (panelIds: string[]) => {
+  const applySuggestion = (panelIds: string[], idx: number) => {
     const panels: PlacedPanel[] = panelIds.map((typeId) => ({ uid: genUid(), typeId }));
     setPlaced(recalcUnions(panels));
+    setSelectedSuggestion(idx);
+  };
+
+  const getSuggestionSummary = (panelIds: string[]) => {
+    const counts: Record<string, number> = {};
+    let perfilInicio = panelIds.length > 0 ? 2 : 0;
+    let unionVisible = 0;
+    let unionInvisible = 0;
+    panelIds.forEach((id, i) => {
+      counts[id] = (counts[id] || 0) + 1;
+      if (i < panelIds.length - 1) {
+        const curr = panelMap[id];
+        const next = panelMap[panelIds[i + 1]];
+        if (curr?.pattern === "liso" && next?.pattern === "liso") {
+          if (defaultUnion === "visible") unionVisible++;
+          else unionInvisible++;
+        }
+      }
+    });
+    return { counts, perfilInicio, unionVisible, unionInvisible };
+  };
+
+  const handleExportSuggestionPDF = (s: { name: string; panels: string[] }) => {
+    const ss = getSuggestionSummary(s.panels);
+    const totalCm = s.panels.reduce((sum, id) => sum + (panelMap[id]?.widthCm || 0), 0);
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const pw = doc.internal.pageSize.getWidth();
+
+    doc.setFillColor(0, 133, 119);
+    doc.rect(0, 0, pw, 32, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("DECOPANEL", 14, 16);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Opción: ${s.name}`, 14, 24);
+    const today = new Date().toLocaleDateString("es-AR");
+    doc.setFontSize(9);
+    doc.text(today, pw - 14, 16, { align: "right" });
+
+    let y = 44;
+    doc.setTextColor(40, 40, 40);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Datos", 14, y); y += 8;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Ancho de pared: ${wallWidth} m (${wallCm} cm)`, 14, y); y += 6;
+    doc.text(`Alto: ${HEIGHT_M} m`, 14, y); y += 6;
+    doc.text(`Cobertura: ${totalCm} cm`, 14, y); y += 10;
+
+    doc.setFont("helvetica", "bold");
+    doc.text("Materiales", 14, y); y += 8;
+    doc.setFont("helvetica", "normal");
+    PANEL_TYPES.forEach((pt) => {
+      const c = ss.counts[pt.id] || 0;
+      if (c > 0) { doc.text(`${pt.label}: ${c} u`, 14, y); y += 6; }
+    });
+    if (ss.perfilInicio > 0) { doc.text(`Perfil Inicio/Terminación: ${ss.perfilInicio} u`, 14, y); y += 6; }
+    if (ss.unionVisible > 0) { doc.text(`Perfil Unión Visible (2mm): ${ss.unionVisible} u`, 14, y); y += 6; }
+    if (ss.unionInvisible > 0) { doc.text(`Perfil Unión Invisible: ${ss.unionInvisible} u`, 14, y); y += 6; }
+    y += 6;
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text("Generado por Floortek — Decopanel | tiendapisos.com", 14, y);
+    doc.save(`Decopanel_${s.name.replace(/ /g, "_")}_${wallWidth}m.pdf`);
   };
 
   // ─── Summary ──────────────────────────────────────────────────
@@ -359,46 +427,120 @@ const DecopanelCalculator = () => {
                 <Wand2 className="w-4 h-4 text-primary" />
                 Opciones Sugeridas
               </CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">Seleccioná una opción para ver el detalle y cargarla al lienzo</p>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-4">
               {suggestions.map((s, i) => {
                 const totalCm = s.panels.reduce((sum, id) => sum + (panelMap[id]?.widthCm || 0), 0);
+                const isSelected = selectedSuggestion === i;
+                const ss = isSelected ? getSuggestionSummary(s.panels) : null;
+                const coverPct = wallCm > 0 ? Math.min((totalCm / wallCm) * 100, 100) : 100;
+
                 return (
-                  <button
+                  <div
                     key={i}
-                    onClick={() => applySuggestion(s.panels)}
-                    className="w-full text-left p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-accent/30 transition-colors"
+                    className={`rounded-xl border-2 transition-all overflow-hidden ${
+                      isSelected
+                        ? "border-primary bg-accent/20 shadow-md"
+                        : "border-border/40 hover:border-primary/40 hover:shadow-sm"
+                    }`}
                   >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="font-medium text-sm text-foreground">{s.name}</span>
-                      <span className="text-xs text-muted-foreground">{totalCm}cm</span>
-                    </div>
-                    {/* Mini preview */}
-                    <div className="flex h-6 rounded overflow-hidden border border-border/30">
-                      {s.panels.map((id, j) => {
-                        const pt = panelMap[id];
-                        if (!pt) return null;
-                        return (
-                          <div
-                            key={j}
-                            className="h-full border-r border-border/20 last:border-r-0 flex items-center justify-center"
-                            style={{
-                              width: `${(pt.widthCm / totalCm) * 100}%`,
-                              backgroundColor: pt.color,
-                            }}
-                          >
-                            {pt.pattern === "varillado" && (
-                              <div className="flex gap-[1px] h-full items-center">
-                                {[...Array(3)].map((_, k) => (
-                                  <div key={k} className="w-[1px] h-3/4 bg-black/15" />
-                                ))}
+                    {/* Header + Preview */}
+                    <button
+                      onClick={() => applySuggestion(s.panels, i)}
+                      className="w-full text-left p-4"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          {isSelected && (
+                            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                              <Check className="w-3 h-3 text-primary-foreground" />
+                            </div>
+                          )}
+                          <span className="font-semibold text-sm text-foreground">{s.name}</span>
+                        </div>
+                        <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                          {totalCm}cm — {s.panels.length} paneles
+                        </span>
+                      </div>
+
+                      {/* Full-width proportional preview */}
+                      <div className="relative rounded-lg overflow-hidden border border-border/30 bg-muted/30" style={{ height: 80 }}>
+                        <div className="flex h-full" style={{ width: `${coverPct}%` }}>
+                          {s.panels.map((id, j) => {
+                            const pt = panelMap[id];
+                            if (!pt) return null;
+                            return (
+                              <div
+                                key={j}
+                                className="h-full border-r border-black/5 last:border-r-0 relative"
+                                style={{
+                                  width: `${(pt.widthCm / totalCm) * 100}%`,
+                                  backgroundColor: pt.color,
+                                }}
+                              >
+                                {pt.pattern === "varillado" && (
+                                  <div className="absolute inset-0 flex justify-evenly items-center pointer-events-none">
+                                    {[...Array(Math.max(3, Math.floor(pt.widthCm / 4)))].map((_, k) => (
+                                      <div key={k} className="w-[1px] h-4/5 bg-black/10" />
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="absolute bottom-1 left-0 right-0 text-center text-[10px] font-medium text-foreground/60">
+                                  {pt.widthCm}
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* Expanded material detail */}
+                    {isSelected && ss && (
+                      <div className="px-4 pb-4 pt-0 border-t border-border/30">
+                        <div className="bg-background rounded-lg p-3 mt-3 space-y-1.5">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Materiales</p>
+                          {PANEL_TYPES.map((pt) => {
+                            const c = ss.counts[pt.id] || 0;
+                            if (c === 0) return null;
+                            return (
+                              <div key={pt.id} className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">{pt.label}</span>
+                                <span className="font-medium">{c} u</span>
+                              </div>
+                            );
+                          })}
+                          {ss.perfilInicio > 0 && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Perfil Inicio/Terminación</span>
+                              <span className="font-medium">{ss.perfilInicio} u</span>
+                            </div>
+                          )}
+                          {ss.unionVisible > 0 && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Perfil Unión Visible (2mm)</span>
+                              <span className="font-medium">{ss.unionVisible} u</span>
+                            </div>
+                          )}
+                          {ss.unionInvisible > 0 && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Perfil Unión Invisible</span>
+                              <span className="font-medium">{ss.unionInvisible} u</span>
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full mt-3 gap-1.5 text-xs"
+                          onClick={(e) => { e.stopPropagation(); handleExportSuggestionPDF(s); }}
+                        >
+                          <Download className="w-3.5 h-3.5" /> Descargar PDF de esta opción
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </CardContent>
