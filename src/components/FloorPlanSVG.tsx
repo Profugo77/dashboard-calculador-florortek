@@ -100,8 +100,14 @@ const FloorPlanSVG = ({ result, ancho, largo, cover }: FloorPlanSVGProps) => {
         </text>
       </svg>
 
+      {/* Info */}
+      <div className="flex flex-col items-center gap-1 mt-3 text-sm text-foreground font-medium">
+        <span>{result.tipoAluminio} — Separación tubos: {result.separacionTubos} cm</span>
+        <span>Separación pilotines: {result.separacionPilotines} cm</span>
+      </div>
+
       {/* Legend */}
-      <div className="flex items-center justify-center flex-wrap gap-4 mt-3 text-xs text-muted-foreground">
+      <div className="flex items-center justify-center flex-wrap gap-4 mt-2 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: "hsl(200 10% 35%)" }} />
           Tubos aluminio
