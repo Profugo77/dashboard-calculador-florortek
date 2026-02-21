@@ -89,7 +89,7 @@ export function exportPDF(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(40, 40, 40);
-  doc.text("Plano de Planta", 14, y);
+  doc.text("Esquema de Estructura", 14, y);
   y += 6;
 
   const maxDiagramW = w - 28;
@@ -197,8 +197,135 @@ export function exportPDF(
   doc.setTextColor(100, 100, 100);
   doc.text("--- Tubos    ── Doble estructura    ● Pilotines", ox, y);
 
+  // ========== DECK BOARD LAYOUT DIAGRAM ==========
+  y += 14;
+
+  // Check if we need a new page
+  if (y + dh + 30 > doc.internal.pageSize.getHeight() - 20) {
+    doc.addPage();
+    y = 20;
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(40, 40, 40);
+  doc.text(`Diseño de Tablas — ${result.estiloColocacion === "panos" ? "Por Paños" : "Trabado (½ tabla)"}`, 14, y);
+  y += 6;
+
+  const ox2 = 14 + (maxDiagramW - dw) / 2;
+  const oy2 = y;
+
+  // Background
+  if (input.forma === "L" && input.lShape) {
+    const ls = input.lShape;
+    const ab2 = ls.anchoBrazo * scale;
+    const lb2 = ls.largoBrazo * scale;
+    doc.setFillColor(80, 65, 50);
+    doc.rect(ox2, oy2, dw, lb2, "F");
+    doc.rect(ox2, oy2 + lb2, ab2, dh - lb2, "F");
+  } else {
+    doc.setFillColor(80, 65, 50);
+    doc.rect(ox2, oy2, dw, dh, "F");
+  }
+
+  // Generate and draw boards
+  const BOARD_W = 0.145;
+  const BOARD_GAP = 0.005;
+  const BOARD_PITCH = BOARD_W + BOARD_GAP;
+  const boardDirection = result.tubeDirection === "vertical" ? "horizontal" : "vertical";
+  const stackDim = boardDirection === "horizontal" ? input.largo : input.ancho;
+  const boardDim = boardDirection === "horizontal" ? input.ancho : input.largo;
+  const boardLen = result.boardLength;
+  const numRows = Math.ceil(stackDim / BOARD_PITCH);
+
+  doc.setFillColor(190, 160, 120); // light brown
+  doc.setDrawColor(30, 30, 30); // black border
+  doc.setLineWidth(0.15);
+
+  for (let row = 0; row < numRows; row++) {
+    const stackPos = row * BOARD_PITCH;
+    if (stackPos >= stackDim) break;
+    const bw = Math.min(BOARD_W, stackDim - stackPos);
+    const offset = result.estiloColocacion === "trabado" && row % 2 === 1 ? boardLen / 2 : 0;
+
+    let pos = -offset;
+    while (pos < boardDim) {
+      const segStart = Math.max(0, pos);
+      const segEnd = Math.min(pos + boardLen, boardDim);
+      pos += boardLen;
+      if (segEnd <= segStart + 0.001) continue;
+      const segLen = segEnd - segStart;
+
+      let rx: number, ry: number, rw: number, rh: number;
+      if (boardDirection === "horizontal") {
+        rx = segStart; ry = stackPos; rw = segLen; rh = bw;
+      } else {
+        rx = stackPos; ry = segStart; rw = bw; rh = segLen;
+      }
+
+      // L-shape clipping
+      if (input.forma === "L" && input.lShape) {
+        if (rx >= input.lShape.anchoBrazo && ry >= input.lShape.largoBrazo) continue;
+        if (ry >= input.lShape.largoBrazo && rx < input.lShape.anchoBrazo) {
+          rw = Math.min(rw, input.lShape.anchoBrazo - rx);
+        }
+        if (rx >= input.lShape.anchoBrazo && ry < input.lShape.largoBrazo) {
+          rh = Math.min(rh, input.lShape.largoBrazo - ry);
+        }
+        if (rw <= 0 || rh <= 0) continue;
+      }
+
+      doc.setFillColor(190, 160, 120);
+      doc.rect(ox2 + rx * scale, oy2 + ry * scale, rw * scale, rh * scale, "FD");
+    }
+  }
+
+  // Outline on top
+  doc.setDrawColor(0, 133, 119);
+  doc.setLineWidth(0.5);
+  if (input.forma === "L" && input.lShape) {
+    const ls = input.lShape;
+    const pts2 = [
+      [ox2, oy2], [ox2 + dw, oy2], [ox2 + dw, oy2 + ls.largoBrazo * scale],
+      [ox2 + ls.anchoBrazo * scale, oy2 + ls.largoBrazo * scale],
+      [ox2 + ls.anchoBrazo * scale, oy2 + dh], [ox2, oy2 + dh],
+    ];
+    for (let i = 0; i < pts2.length; i++) {
+      const next = pts2[(i + 1) % pts2.length];
+      doc.line(pts2[i][0], pts2[i][1], next[0], next[1]);
+    }
+  } else {
+    doc.rect(ox2, oy2, dw, dh, "S");
+  }
+
+  // Cover on deck diagram
+  if (input.cover) {
+    doc.setDrawColor(255, 120, 20);
+    doc.setLineWidth(1.2);
+    const co2 = 0.6;
+    if (input.forma === "L" && input.lShape) {
+      const ls = input.lShape;
+      if (input.cover.ancho1) doc.line(ox2 - co2, oy2, ox2 + dw + co2, oy2);
+      if (input.cover.ancho2) doc.line(ox2 - co2, oy2 + dh, ox2 + ls.anchoBrazo * scale + co2, oy2 + dh);
+      if (input.cover.largo1) doc.line(ox2, oy2 - co2, ox2, oy2 + dh + co2);
+      if (input.cover.largo2) doc.line(ox2 + dw, oy2 - co2, ox2 + dw, oy2 + ls.largoBrazo * scale + co2);
+    } else {
+      if (input.cover.ancho1) doc.line(ox2 - co2, oy2, ox2 + dw + co2, oy2);
+      if (input.cover.ancho2) doc.line(ox2 - co2, oy2 + dh, ox2 + dw + co2, oy2 + dh);
+      if (input.cover.largo1) doc.line(ox2, oy2 - co2, ox2, oy2 + dh + co2);
+      if (input.cover.largo2) doc.line(ox2 + dw, oy2 - co2, ox2 + dw, oy2 + dh + co2);
+    }
+  }
+
+  // Dimension labels
+  doc.setFontSize(8);
+  doc.setTextColor(60, 60, 60);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${input.ancho} m`, ox2 + dw / 2, oy2 - 2, { align: "center" });
+  doc.text(`${input.largo} m`, ox2 - 4, oy2 + dh / 2, { align: "center", angle: 90 });
+
   // Footer
-  y += 10;
+  y = oy2 + dh + 12;
   doc.setFontSize(8);
   doc.setTextColor(120, 120, 120);
   doc.text("Generado por Floortek — Calculadora Técnica de Decks | tiendapisos.com", 14, y);
