@@ -28,18 +28,21 @@ const BEAM_SIZES: BeamSize[] = [
 const BEAM_STOCK_LENGTH = 2900; // mm
 
 // ─── Calculation ─────────────────────────────────────────────────
+const TUBO_MIN_INSIDE = 400; // mm — mínimo dentro de cada viga
+
 interface ParasolResult {
   cantVigas: number;
-  vigasPorUnidad: number; // how many beams cut from each 2.9m stock
-  stockUnits: number; // how many 2.9m pieces to buy
+  vigasPorUnidad: number;
+  stockUnits: number;
   mlVigas: number;
-  cantTubosHierro: number;
-  mlTubosHierro: number;
-  cantPlanchuelas: number;
+  cantPlanchuelas: number; // planchuelas de hierro (barras horizontales de estructura)
+  mlPlanchuelas: number;
+  cantTubos: number; // tubos de hierro que entran dentro de cada viga (2 por viga)
+  mlTubos: number;
   cantPivotes: number;
   cantTornillos: number;
   separacionReal: number;
-  maxGapCiega: number; // only for giratorio
+  maxGapCiega: number;
   puedeSerCiega: boolean;
 }
 
@@ -51,7 +54,6 @@ function calcParasol(
   mount: MountType
 ): ParasolResult {
   const isGiratorio = mount === "giratorio";
-  // Giratorio is always piso-techo style (vertical beams)
   const isVertical = mount === "piso-techo" || mount === "giratorio";
 
   const distDim = isVertical ? anchoMm : altoMm;
@@ -63,43 +65,42 @@ function calcParasol(
   const usedWidth = cantVigas * beam.w + (cantVigas - 1) * gapMm;
   const separacionReal = cantVigas > 1 ? gapMm + (distDim - usedWidth) / (cantVigas - 1) : gapMm;
 
-  // How many beams per stock piece
   const vigasPorUnidad = Math.floor(BEAM_STOCK_LENGTH / beamLengthMm);
   const stockUnits = vigasPorUnidad > 0 ? Math.ceil(cantVigas / vigasPorUnidad) : cantVigas;
 
   const mlVigas = cantVigas * (beamLengthMm / 1000);
 
-  // Max gap for ciega: beam.h - beam.w (depth - face)
   const maxGapCiega = beam.h - beam.w;
   const puedeSerCiega = gapMm <= maxGapCiega;
 
-  let cantTubosHierro = 0;
-  let mlTubosHierro = 0;
   let cantPlanchuelas = 0;
+  let mlPlanchuelas = 0;
+  let cantTubos = 0;
+  let mlTubos = 0;
   let cantPivotes = 0;
 
   if (isGiratorio) {
-    // No tubes/planchuelas — pivots at top and bottom of each beam
     cantPivotes = cantVigas * 2;
-    cantTubosHierro = 0;
-    mlTubosHierro = 0;
-    cantPlanchuelas = 0;
   } else {
-    cantTubosHierro = 2;
-    mlTubosHierro = Math.round(cantTubosHierro * (distDim / 1000) * 100) / 100;
-    cantPlanchuelas = cantVigas * 2;
+    // 2 planchuelas horizontales de estructura (arriba y abajo)
+    cantPlanchuelas = 2;
+    mlPlanchuelas = Math.round(cantPlanchuelas * (distDim / 1000) * 100) / 100;
+    // 2 tubos por viga (arriba y abajo), cada uno entra mín 40cm dentro de la viga
+    cantTubos = cantVigas * 2;
+    mlTubos = Math.round(cantTubos * (TUBO_MIN_INSIDE / 1000) * 100) / 100;
   }
 
-  const cantTornillos = isGiratorio ? cantPivotes * 2 : cantPlanchuelas * 2;
+  const cantTornillos = isGiratorio ? cantPivotes * 2 : cantTubos * 2;
 
   return {
     cantVigas,
     vigasPorUnidad: vigasPorUnidad > 0 ? vigasPorUnidad : 1,
     stockUnits,
     mlVigas: Math.round(mlVigas * 100) / 100,
-    cantTubosHierro,
-    mlTubosHierro,
     cantPlanchuelas,
+    mlPlanchuelas,
+    cantTubos,
+    mlTubos,
     cantPivotes,
     cantTornillos,
     separacionReal: Math.round(separacionReal * 10) / 10,
@@ -246,9 +247,9 @@ function ParasolScheme({
       ) : (
         <>
           <rect x={ox + 90} y={svgH - 18} width={10} height={6} fill="hsl(var(--muted-foreground))" opacity={0.6} rx={1} />
-          <text x={ox + 104} y={svgH - 12} fontSize={9} fill="hsl(var(--muted-foreground))">Tubos H°</text>
-          <rect x={ox + 170} y={svgH - 18} width={10} height={6} fill="hsl(var(--muted-foreground))" opacity={0.4} rx={1} />
-          <text x={ox + 184} y={svgH - 12} fontSize={9} fill="hsl(var(--muted-foreground))">Planchuelas</text>
+          <text x={ox + 104} y={svgH - 12} fontSize={9} fill="hsl(var(--muted-foreground))">Planchuelas H°</text>
+          <rect x={ox + 185} y={svgH - 18} width={10} height={6} fill="hsl(var(--muted-foreground))" opacity={0.4} rx={1} />
+          <text x={ox + 199} y={svgH - 12} fontSize={9} fill="hsl(var(--muted-foreground))">Tubos H°</text>
         </>
       )}
     </svg>
@@ -312,8 +313,8 @@ function exportParasolPDF(
   if (mount === "giratorio") {
     rows.push(["Pivotes (piso/techo)", `${result.cantPivotes} un.`]);
   } else {
-    rows.push(["Tubos de hierro", `${result.cantTubosHierro} un. (${result.mlTubosHierro} ml)`]);
-    rows.push(["Planchuelas H°", `${result.cantPlanchuelas} un.`]);
+    rows.push(["Planchuelas de hierro", `${result.cantPlanchuelas} un. (${result.mlPlanchuelas} ml)`]);
+    rows.push(["Tubos de hierro (mín. 40cm)", `${result.cantTubos} un. (${result.mlTubos} ml)`]);
   }
   rows.push(["Tornillos", `${result.cantTornillos} un.`]);
 
@@ -399,7 +400,7 @@ function exportParasolPDF(
   doc.setTextColor(100, 100, 100);
   const legendText = mount === "giratorio"
     ? "█ Vigas WPC    ● Pivotes    Sep. real: " + result.separacionReal + " mm"
-    : "█ Vigas WPC    ── Tubos H°    Sep. real: " + result.separacionReal + " mm";
+    : "█ Vigas WPC    ── Planchuelas H°    ▪ Tubos H°    Sep. real: " + result.separacionReal + " mm";
   doc.text(legendText, ox, y);
 
   y += 12;
@@ -522,7 +523,7 @@ const ParasolCalculator = () => {
               <Label className={`flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-colors ${mount === "piso-techo" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
                 <RadioGroupItem value="piso-techo" />
                 <span className="text-sm font-semibold">Piso y Techo</span>
-                <span className="text-xs text-muted-foreground text-center">Vigas verticales fijas con planchuelas</span>
+                <span className="text-xs text-muted-foreground text-center">Vigas verticales fijas con planchuelas y tubos</span>
               </Label>
               <Label className={`flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-colors ${mount === "giratorio" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
                 <RadioGroupItem value="giratorio" />
@@ -607,13 +608,14 @@ const ParasolCalculator = () => {
                   ) : (
                     <>
                       <div className="bg-muted rounded-lg p-3 text-center">
-                        <p className="text-2xl font-bold text-foreground">{result.cantTubosHierro}</p>
-                        <p className="text-xs text-muted-foreground">Tubos de hierro</p>
-                        <p className="text-xs font-medium">{result.mlTubosHierro} ml</p>
+                        <p className="text-2xl font-bold text-foreground">{result.cantPlanchuelas}</p>
+                        <p className="text-xs text-muted-foreground">Planchuelas de hierro</p>
+                        <p className="text-xs font-medium">{result.mlPlanchuelas} ml</p>
                       </div>
                       <div className="bg-muted rounded-lg p-3 text-center">
-                        <p className="text-2xl font-bold text-foreground">{result.cantPlanchuelas}</p>
-                        <p className="text-xs text-muted-foreground">Planchuelas H°</p>
+                        <p className="text-2xl font-bold text-foreground">{result.cantTubos}</p>
+                        <p className="text-xs text-muted-foreground">Tubos de hierro</p>
+                        <p className="text-xs font-medium">{result.mlTubos} ml ({TUBO_MIN_INSIDE / 10} cm c/u)</p>
                       </div>
                     </>
                   )}
