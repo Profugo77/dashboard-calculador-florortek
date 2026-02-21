@@ -32,231 +32,32 @@ interface Product {
   category: "interior" | "exterior";
   widthMm: number;
   lengthMm: number;
-  m2PerUnit: number; // m² que cubre 1 panel/pieza
-  unitsPerPack: number; // piezas por caja/stretch
-  pricePerPack: number; // $/pack
+  m2PerUnit: number;
+  unitsPerPack: number;
   tone: string;
 }
 
 const PRODUCTS: Product[] = [
   // ─── Interior ────────────────────
-  {
-    id: "wide-roble-natural",
-    name: "Wide Roble Natural",
-    line: "Wide",
-    category: "interior",
-    widthMm: 120,
-    lengthMm: 2750,
-    m2PerUnit: 0.33,
-    unitsPerPack: 1,
-    pricePerPack: 17208,
-    tone: "Marrón claro",
-  },
-  {
-    id: "flat-negro",
-    name: "Flat Negro",
-    line: "Flat",
-    category: "interior",
-    widthMm: 122,
-    lengthMm: 2850,
-    m2PerUnit: 0.3477,
-    unitsPerPack: 1,
-    pricePerPack: 14700,
-    tone: "Negro",
-  },
-  {
-    id: "sharp-forest-25",
-    name: "Sharp Forest 25cm",
-    line: "Sharp",
-    category: "interior",
-    widthMm: 250,
-    lengthMm: 2850,
-    m2PerUnit: 0.7125,
-    unitsPerPack: 1,
-    pricePerPack: 26460,
-    tone: "Marrón oscuro",
-  },
-  {
-    id: "sharp-nature-25",
-    name: "Sharp Nature 25cm",
-    line: "Sharp",
-    category: "interior",
-    widthMm: 250,
-    lengthMm: 2850,
-    m2PerUnit: 0.7125,
-    unitsPerPack: 1,
-    pricePerPack: 26460,
-    tone: "Marrón claro",
-  },
-  {
-    id: "flat-3d-verde-aqua",
-    name: "Flat 3D Verde Aqua",
-    line: "Flat 3D",
-    category: "interior",
-    widthMm: 122,
-    lengthMm: 2850,
-    m2PerUnit: 0.3477,
-    unitsPerPack: 1,
-    pricePerPack: 27930,
-    tone: "Verde Aqua",
-  },
-  {
-    id: "interior-incienso",
-    name: "Incienso",
-    line: "Tradicional",
-    category: "interior",
-    widthMm: 120,
-    lengthMm: 2750,
-    m2PerUnit: 0.33,
-    unitsPerPack: 1,
-    pricePerPack: 19110,
-    tone: "Marrón oscuro",
-  },
-  {
-    id: "elite-roble",
-    name: "Elite Pannel Skin Roble",
-    line: "Elite Pannel Skin",
-    category: "interior",
-    widthMm: 120,
-    lengthMm: 2900,
-    m2PerUnit: 0.348,
-    unitsPerPack: 1,
-    pricePerPack: 24035,
-    tone: "Marrón claro",
-  },
-  {
-    id: "elite-incienso",
-    name: "Elite Pannel Skin Incienso",
-    line: "Elite Pannel Skin",
-    category: "interior",
-    widthMm: 120,
-    lengthMm: 2900,
-    m2PerUnit: 0.348,
-    unitsPerPack: 1,
-    pricePerPack: 24035,
-    tone: "Marrón oscuro",
-  },
-  {
-    id: "elite-gris-onix",
-    name: "Elite Pannel Skin Gris Onix",
-    line: "Elite Pannel Skin",
-    category: "interior",
-    widthMm: 120,
-    lengthMm: 2900,
-    m2PerUnit: 0.348,
-    unitsPerPack: 1,
-    pricePerPack: 24035,
-    tone: "Grisáceo",
-  },
-  {
-    id: "elite-blanco-perla",
-    name: "Elite Pannel Skin Blanco Perla",
-    line: "Elite Pannel Skin",
-    category: "interior",
-    widthMm: 120,
-    lengthMm: 2900,
-    m2PerUnit: 0.348,
-    unitsPerPack: 1,
-    pricePerPack: 24035,
-    tone: "Beige",
-  },
-  {
-    id: "slim-blanco-mate",
-    name: "Slim Blanco Mate",
-    line: "Slim",
-    category: "interior",
-    widthMm: 120,
-    lengthMm: 2750,
-    m2PerUnit: 0.33,
-    unitsPerPack: 1,
-    pricePerPack: 17208,
-    tone: "Blanco",
-  },
-  {
-    id: "slim-roble-natural",
-    name: "Slim Roble Natural",
-    line: "Slim",
-    category: "interior",
-    widthMm: 120,
-    lengthMm: 2750,
-    m2PerUnit: 0.33,
-    unitsPerPack: 1,
-    pricePerPack: 17208,
-    tone: "Marrón claro",
-  },
+  { id: "wide-roble-natural", name: "Wide Roble Natural", line: "Wide", category: "interior", widthMm: 120, lengthMm: 2750, m2PerUnit: 0.33, unitsPerPack: 1, tone: "Marrón claro" },
+  { id: "flat-negro", name: "Flat Negro", line: "Flat", category: "interior", widthMm: 122, lengthMm: 2850, m2PerUnit: 0.3477, unitsPerPack: 1, tone: "Negro" },
+  { id: "sharp-forest-25", name: "Sharp Forest 25cm", line: "Sharp", category: "interior", widthMm: 250, lengthMm: 2850, m2PerUnit: 0.7125, unitsPerPack: 1, tone: "Marrón oscuro" },
+  { id: "sharp-nature-25", name: "Sharp Nature 25cm", line: "Sharp", category: "interior", widthMm: 250, lengthMm: 2850, m2PerUnit: 0.7125, unitsPerPack: 1, tone: "Marrón claro" },
+  { id: "flat-3d-verde-aqua", name: "Flat 3D Verde Aqua", line: "Flat 3D", category: "interior", widthMm: 122, lengthMm: 2850, m2PerUnit: 0.3477, unitsPerPack: 1, tone: "Verde Aqua" },
+  { id: "interior-incienso", name: "Incienso", line: "Tradicional", category: "interior", widthMm: 120, lengthMm: 2750, m2PerUnit: 0.33, unitsPerPack: 1, tone: "Marrón oscuro" },
+  { id: "elite-roble", name: "Elite Pannel Skin Roble", line: "Elite Pannel Skin", category: "interior", widthMm: 120, lengthMm: 2900, m2PerUnit: 0.348, unitsPerPack: 1, tone: "Marrón claro" },
+  { id: "elite-incienso", name: "Elite Pannel Skin Incienso", line: "Elite Pannel Skin", category: "interior", widthMm: 120, lengthMm: 2900, m2PerUnit: 0.348, unitsPerPack: 1, tone: "Marrón oscuro" },
+  { id: "elite-gris-onix", name: "Elite Pannel Skin Gris Onix", line: "Elite Pannel Skin", category: "interior", widthMm: 120, lengthMm: 2900, m2PerUnit: 0.348, unitsPerPack: 1, tone: "Grisáceo" },
+  { id: "elite-blanco-perla", name: "Elite Pannel Skin Blanco Perla", line: "Elite Pannel Skin", category: "interior", widthMm: 120, lengthMm: 2900, m2PerUnit: 0.348, unitsPerPack: 1, tone: "Beige" },
+  { id: "slim-blanco-mate", name: "Slim Blanco Mate", line: "Slim", category: "interior", widthMm: 120, lengthMm: 2750, m2PerUnit: 0.33, unitsPerPack: 1, tone: "Blanco" },
+  { id: "slim-roble-natural", name: "Slim Roble Natural", line: "Slim", category: "interior", widthMm: 120, lengthMm: 2750, m2PerUnit: 0.33, unitsPerPack: 1, tone: "Marrón claro" },
   // ─── Exterior ────────────────────
-  {
-    id: "ext-g02-antique",
-    name: "Co-Extruded G02 Antique",
-    line: "Co-Extruded Stretch",
-    category: "exterior",
-    widthMm: 219,
-    lengthMm: 2900,
-    m2PerUnit: 0.6,
-    unitsPerPack: 2,
-    pricePerPack: 60270,
-    tone: "Grisáceo",
-  },
-  {
-    id: "ext-g10-ipe",
-    name: "Co-Extruded G10 Ipe",
-    line: "Co-Extruded Stretch",
-    category: "exterior",
-    widthMm: 219,
-    lengthMm: 2900,
-    m2PerUnit: 0.6,
-    unitsPerPack: 2,
-    pricePerPack: 60270,
-    tone: "Marrón oscuro",
-  },
-  {
-    id: "ext-g07-charcoal",
-    name: "Co-Extruded G07 Charcoal",
-    line: "Co-Extruded Stretch",
-    category: "exterior",
-    widthMm: 219,
-    lengthMm: 2900,
-    m2PerUnit: 0.6,
-    unitsPerPack: 2,
-    pricePerPack: 60270,
-    tone: "Negro",
-  },
-  {
-    id: "ext-g04-teak",
-    name: "Co-Extruded G04 Teak",
-    line: "Co-Extruded Stretch",
-    category: "exterior",
-    widthMm: 219,
-    lengthMm: 2900,
-    m2PerUnit: 0.6,
-    unitsPerPack: 2,
-    pricePerPack: 60270,
-    tone: "Marrón claro",
-  },
-  {
-    id: "ext-g06-silver-grey",
-    name: "Co-Extruded G06 Silver Grey",
-    line: "Co-Extruded Stretch",
-    category: "exterior",
-    widthMm: 219,
-    lengthMm: 2900,
-    m2PerUnit: 0.6,
-    unitsPerPack: 2,
-    pricePerPack: 60270,
-    tone: "Gris plateado",
-  },
-  {
-    id: "ext-g01-white-oak",
-    name: "Co-Extruded G01 White Oak",
-    line: "Co-Extruded Stretch",
-    category: "exterior",
-    widthMm: 219,
-    lengthMm: 2900,
-    m2PerUnit: 0.6,
-    unitsPerPack: 2,
-    pricePerPack: 60270,
-    tone: "Blanco",
-  },
+  { id: "ext-g02-antique", name: "Co-Extruded G02 Antique", line: "Co-Extruded Stretch", category: "exterior", widthMm: 219, lengthMm: 2900, m2PerUnit: 0.6, unitsPerPack: 2, tone: "Grisáceo" },
+  { id: "ext-g10-ipe", name: "Co-Extruded G10 Ipe", line: "Co-Extruded Stretch", category: "exterior", widthMm: 219, lengthMm: 2900, m2PerUnit: 0.6, unitsPerPack: 2, tone: "Marrón oscuro" },
+  { id: "ext-g07-charcoal", name: "Co-Extruded G07 Charcoal", line: "Co-Extruded Stretch", category: "exterior", widthMm: 219, lengthMm: 2900, m2PerUnit: 0.6, unitsPerPack: 2, tone: "Negro" },
+  { id: "ext-g04-teak", name: "Co-Extruded G04 Teak", line: "Co-Extruded Stretch", category: "exterior", widthMm: 219, lengthMm: 2900, m2PerUnit: 0.6, unitsPerPack: 2, tone: "Marrón claro" },
+  { id: "ext-g06-silver-grey", name: "Co-Extruded G06 Silver Grey", line: "Co-Extruded Stretch", category: "exterior", widthMm: 219, lengthMm: 2900, m2PerUnit: 0.6, unitsPerPack: 2, tone: "Gris plateado" },
+  { id: "ext-g01-white-oak", name: "Co-Extruded G01 White Oak", line: "Co-Extruded Stretch", category: "exterior", widthMm: 219, lengthMm: 2900, m2PerUnit: 0.6, unitsPerPack: 2, tone: "Blanco" },
 ];
 
 // ─── Types ───────────────────────────────────────────────────────
@@ -268,11 +69,6 @@ interface Room {
 }
 
 type InputMode = "total" | "medidas";
-
-// ─── Helpers ─────────────────────────────────────────────────────
-function formatPrice(n: number): string {
-  return n.toLocaleString("es-AR", { style: "currency", currency: "ARS", minimumFractionDigits: 0 });
-}
 
 // ─── Main Component ──────────────────────────────────────────────
 const RevestimientosCalculator = () => {
@@ -300,7 +96,6 @@ const RevestimientosCalculator = () => {
   // Filter products by category
   const filteredProducts = PRODUCTS.filter((p) => p.category === categoryFilter);
 
-  // When category changes, auto-select first product of that category
   const handleCategoryChange = (cat: "interior" | "exterior") => {
     setCategoryFilter(cat);
     const first = PRODUCTS.find((p) => p.category === cat);
@@ -323,7 +118,6 @@ const RevestimientosCalculator = () => {
   // ─── Calculations ──────────────────────────────────────────────
   const calc = useMemo(() => {
     let baseM2 = 0;
-
     if (inputMode === "total") {
       baseM2 = parseFloat(totalM2Str) || 0;
     } else {
@@ -336,21 +130,11 @@ const RevestimientosCalculator = () => {
 
     const wasteM2 = includeWaste ? baseM2 * (wastePercent / 100) : 0;
     const totalM2 = baseM2 + wasteM2;
-
     const totalUnits = product.m2PerUnit > 0 ? Math.ceil(totalM2 / product.m2PerUnit) : 0;
     const totalPacks = Math.ceil(totalUnits / product.unitsPerPack);
-    const totalPrice = totalPacks * product.pricePerPack;
     const materialM2 = totalUnits * product.m2PerUnit;
 
-    return {
-      baseM2,
-      wasteM2,
-      totalM2,
-      totalUnits,
-      totalPacks,
-      totalPrice,
-      materialM2,
-    };
+    return { baseM2, wasteM2, totalM2, totalUnits, totalPacks, materialM2 };
   }, [inputMode, totalM2Str, rooms, product, includeWaste, wastePercent]);
 
   const roomData = rooms.map((r) => {
@@ -360,27 +144,27 @@ const RevestimientosCalculator = () => {
   });
 
   const hasData = calc.baseM2 > 0;
-
-  // Pack label
   const packLabel = product.unitsPerPack > 1 ? `Pack x${product.unitsPerPack}` : "Panel";
 
-  // ─── PDF Export ────────────────────────────────────────────────
+  // ─── PDF Export with wall diagram ──────────────────────────────
   const handleExportPDF = () => {
     const doc = new jsPDF({ unit: "mm", format: "a4" });
-    const w = doc.internal.pageSize.getWidth();
+    const pw = doc.internal.pageSize.getWidth();
+    const ph = doc.internal.pageSize.getHeight();
 
+    // Header
     doc.setFillColor(0, 133, 119);
-    doc.rect(0, 0, w, 32, "F");
+    doc.rect(0, 0, pw, 32, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
     doc.text("REVESTIMIENTOS", 14, 16);
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text("Cotización de Materiales", 14, 24);
+    doc.text("Esquema de Materiales", 14, 24);
     const today = new Date().toLocaleDateString("es-AR");
     doc.setFontSize(9);
-    doc.text(today, w - 14, 16, { align: "right" });
+    doc.text(today, pw - 14, 16, { align: "right" });
 
     let y = 44;
     doc.setTextColor(40, 40, 40);
@@ -391,10 +175,9 @@ const RevestimientosCalculator = () => {
     doc.setFont("helvetica", "normal");
     doc.text(`${product.name} — Línea ${product.line}`, 14, y); y += 6;
     doc.text(`Medida: ${product.widthMm}mm × ${product.lengthMm}mm | ${product.m2PerUnit} m²/panel`, 14, y); y += 6;
-    doc.text(`Uso: ${product.category === "interior" ? "Interior" : "Exterior"} | Tono: ${product.tone}`, 14, y); y += 6;
-    doc.text(`Precio: ${formatPrice(product.pricePerPack)} / ${packLabel}`, 14, y); y += 10;
+    doc.text(`Uso: ${product.category === "interior" ? "Interior" : "Exterior"} | Tono: ${product.tone}`, 14, y); y += 10;
 
-    // Surfaces
+    // Surfaces breakdown
     if (inputMode === "medidas") {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
@@ -409,10 +192,10 @@ const RevestimientosCalculator = () => {
       y += 4;
     }
 
-    // Summary
+    // Summary table (no prices)
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.text("Resumen Estimado", 14, y); y += 8;
+    doc.text("Resumen de Materiales", 14, y); y += 8;
 
     const rows = [
       ["Concepto", "Valor"],
@@ -422,14 +205,13 @@ const RevestimientosCalculator = () => {
       ["Paneles necesarios", `${calc.totalUnits}`],
       [`${packLabel}s a comprar`, `${calc.totalPacks}`],
       ["Material total", `${calc.materialM2.toFixed(2)} m²`],
-      ["Precio estimado", formatPrice(calc.totalPrice)],
     ];
 
     doc.setFontSize(10);
     rows.forEach((row, i) => {
       if (i === 0) {
         doc.setFillColor(0, 133, 119);
-        doc.rect(12, y - 4, w - 24, 7, "F");
+        doc.rect(12, y - 4, pw - 24, 7, "F");
         doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
       } else {
@@ -437,15 +219,118 @@ const RevestimientosCalculator = () => {
         doc.setFont("helvetica", "normal");
         if (i % 2 === 0) {
           doc.setFillColor(240, 248, 246);
-          doc.rect(12, y - 4, w - 24, 7, "F");
+          doc.rect(12, y - 4, pw - 24, 7, "F");
         }
       }
       doc.text(row[0], 14, y);
-      doc.text(row[1], w - 14, y, { align: "right" });
+      doc.text(row[1], pw - 14, y, { align: "right" });
       y += 7;
     });
 
+    // ─── Wall Panel Layout Diagrams ───────────────────────────────
+    const panelWidthM = product.widthMm / 1000;
+    const panelLengthM = product.lengthMm / 1000;
+
+    const wallsToDraw = inputMode === "medidas"
+      ? roomData.filter((r) => r.area > 0).map((r) => ({
+          label: r.name,
+          width: parseFloat(r.ancho) || 0,
+          height: parseFloat(r.alto) || 0,
+        }))
+      : [];
+
+    if (wallsToDraw.length > 0) {
+      wallsToDraw.forEach((wall) => {
+        // Check page space
+        const maxDiagH = 80;
+        if (y + maxDiagH + 20 > ph - 20) {
+          doc.addPage();
+          y = 20;
+        }
+
+        y += 10;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(40, 40, 40);
+        doc.text(`Esquema: ${wall.label} (${wall.width}m × ${wall.height}m)`, 14, y);
+        y += 6;
+
+        const maxW = pw - 28;
+        const maxH = 70;
+        const scale = Math.min(maxW / wall.width, maxH / wall.height);
+        const dw = wall.width * scale;
+        const dh = wall.height * scale;
+        const ox = 14 + (maxW - dw) / 2;
+        const oy = y;
+
+        // Wall background
+        doc.setFillColor(235, 235, 230);
+        doc.setDrawColor(120, 120, 120);
+        doc.setLineWidth(0.4);
+        doc.rect(ox, oy, dw, dh, "FD");
+
+        // Draw panels (vertical strips)
+        const panelW = panelWidthM * scale;
+        const panelH = panelLengthM * scale;
+        const gap = 0.5; // mm gap between panels in diagram
+
+        let col = 0;
+        let px = 0;
+        while (px < wall.width - 0.001) {
+          const thisW = Math.min(panelWidthM, wall.width - px);
+          const thisPxW = thisW * scale;
+
+          let row = 0;
+          let py = 0;
+          while (py < wall.height - 0.001) {
+            const thisH = Math.min(panelLengthM, wall.height - py);
+            const thisPxH = thisH * scale;
+
+            // Alternate colors for visual clarity
+            const shade = (col + row) % 2 === 0;
+            doc.setFillColor(shade ? 190 : 170, shade ? 160 : 140, shade ? 120 : 100);
+            doc.setDrawColor(60, 50, 40);
+            doc.setLineWidth(0.2);
+            doc.rect(
+              ox + px * scale + gap / 2,
+              oy + py * scale + gap / 2,
+              thisPxW - gap,
+              thisPxH - gap,
+              "FD"
+            );
+
+            py += panelLengthM;
+            row++;
+          }
+          px += panelWidthM;
+          col++;
+        }
+
+        // Outline on top
+        doc.setDrawColor(0, 133, 119);
+        doc.setLineWidth(0.6);
+        doc.rect(ox, oy, dw, dh, "S");
+
+        // Dimension labels
+        doc.setFontSize(8);
+        doc.setTextColor(60, 60, 60);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${wall.width} m`, ox + dw / 2, oy - 2, { align: "center" });
+        doc.text(`${wall.height} m`, ox - 4, oy + dh / 2, { align: "center", angle: 90 });
+
+        // Panel count for this wall
+        const wallPanels = Math.ceil(wall.width * wall.height / product.m2PerUnit);
+        doc.setFontSize(7);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`${wallPanels} paneles — ${panelWidthM * 1000}mm × ${panelLengthM * 1000}mm c/u`, ox, oy + dh + 5);
+
+        y = oy + dh + 10;
+      });
+    }
+
+    // Footer
     y += 8;
+    if (y > ph - 15) { doc.addPage(); y = 20; }
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
     doc.text("Generado por Floortek — Cotizador de Revestimientos | tiendapisos.com", 14, y);
@@ -453,13 +338,12 @@ const RevestimientosCalculator = () => {
     doc.save(`Revestimientos_${product.name.replace(/\s/g, "_")}_${calc.totalM2.toFixed(0)}m2.pdf`);
   };
 
-  // WhatsApp
+  // WhatsApp (no prices)
   const handleWhatsApp = () => {
     const text = `Hola, estoy cotizando *${product.name}* (${product.category === "interior" ? "Interior" : "Exterior"}).%0A` +
       `Superficie: ${calc.totalM2.toFixed(2)} m²%0A` +
       `Paneles: ${calc.totalUnits}%0A` +
-      `${packLabel}s: ${calc.totalPacks}%0A` +
-      `Estimado: ${formatPrice(calc.totalPrice)}`;
+      `${packLabel}s: ${calc.totalPacks}`;
     window.open(`https://wa.me/5491122393653?text=${text}`, "_blank");
   };
 
@@ -500,7 +384,6 @@ const RevestimientosCalculator = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {/* Interior / Exterior toggle */}
             <Tabs value={categoryFilter} onValueChange={(v) => handleCategoryChange(v as "interior" | "exterior")}>
               <TabsList className="w-full">
                 <TabsTrigger value="interior" className="flex-1">Interior</TabsTrigger>
@@ -521,16 +404,12 @@ const RevestimientosCalculator = () => {
               </SelectContent>
             </Select>
 
-            {/* Product info strip */}
             <div className="bg-muted/50 rounded-lg px-3 py-2.5 text-xs text-muted-foreground space-y-0.5">
               <p className="font-medium text-foreground text-sm">
                 {product.name} <span className="text-muted-foreground font-normal">— Línea {product.line}</span>
               </p>
               <p>
                 Medida: {product.widthMm}mm × {product.lengthMm}mm | {product.m2PerUnit} m²/panel
-              </p>
-              <p className="font-semibold text-foreground">
-                {formatPrice(product.pricePerPack)} / {packLabel}
               </p>
             </div>
           </CardContent>
@@ -610,7 +489,6 @@ const RevestimientosCalculator = () => {
               </TabsContent>
             </Tabs>
 
-            {/* Waste toggle */}
             <label className="flex items-center gap-2 cursor-pointer pt-1">
               <Checkbox
                 checked={includeWaste}
@@ -628,7 +506,6 @@ const RevestimientosCalculator = () => {
               <CardTitle className="text-base">Resumen estimado</CardTitle>
             </CardHeader>
             <CardContent>
-              {/* Per-room breakdown (only in medidas mode) */}
               {inputMode === "medidas" && (
                 <div className="space-y-1 mb-4">
                   {roomData
@@ -647,12 +524,10 @@ const RevestimientosCalculator = () => {
                 </div>
               )}
 
-              {/* Summary box */}
               <div className="bg-accent/50 rounded-lg p-4 space-y-2.5">
-                {/* Big number */}
                 <div className="text-center pb-2 border-b border-border/50">
                   <p className="text-3xl font-bold text-foreground">{calc.totalPacks} {packLabel}{calc.totalPacks !== 1 ? "s" : ""}</p>
-                  <p className="text-xl font-semibold text-primary">{formatPrice(calc.totalPrice)}</p>
+                  <p className="text-sm text-muted-foreground">{calc.totalUnits} paneles</p>
                 </div>
 
                 <div className="flex justify-between text-sm">
@@ -669,13 +544,8 @@ const RevestimientosCalculator = () => {
                   <span className="text-muted-foreground">Material Total:</span>
                   <span>{calc.materialM2.toFixed(2)}m²</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Paneles:</span>
-                  <span>{calc.totalUnits}</span>
-                </div>
               </div>
 
-              {/* Actions */}
               <div className="flex gap-2 mt-4">
                 <Button className="flex-1 gap-2" onClick={handleWhatsApp}>
                   <MessageCircle className="w-4 h-4" />
