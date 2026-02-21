@@ -30,6 +30,10 @@ export interface DeckResult {
   tubeLength: number;
   pilotinPositions: { x: number; y: number }[];
   tubeDirection: "horizontal" | "vertical";
+  // Info for display
+  separacionTubos: number; // in cm
+  separacionPilotines: number; // in cm
+  tipoAluminio: string;
 }
 
 export function calculateDeck(input: DeckInput): DeckResult {
@@ -97,6 +101,8 @@ export function calculateDeck(input: DeckInput): DeckResult {
       (cover.largo2 ? largo : 0)
     : 0;
 
+  const tipoAluminio = input.altura === "mas7" ? "Aluminio 40×40" : "Aluminio 20×40";
+
   return {
     superficieReal,
     superficieConDesperdicio: Math.ceil(superficieConDesperdicio * 100) / 100,
@@ -110,5 +116,8 @@ export function calculateDeck(input: DeckInput): DeckResult {
     tubeLength: tubeLengthDimension,
     pilotinPositions,
     tubeDirection,
+    separacionTubos: Math.round(actualTubeSpacing * 100 * 100) / 100,
+    separacionPilotines: Math.round(actualPilotinSpacing * 100 * 100) / 100,
+    tipoAluminio,
   };
 }
