@@ -69,7 +69,7 @@ const PisosVinilicosCalculator = () => {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
-    doc.text("PISOS VINÍLICOS", 14, 16);
+    doc.text("PISOS VINÍLICOS Y ZÓCALOS", 14, 16);
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text("Cálculo de Materiales", 14, 24);
@@ -146,7 +146,7 @@ const PisosVinilicosCalculator = () => {
           </Button>
           <div className="flex-1">
             <h1 className="text-xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-              PISOS VINÍLICOS
+              PISOS VINÍLICOS Y ZÓCALOS
             </h1>
             <p className="text-xs text-primary-foreground/70">Cálculo de Materiales</p>
           </div>
