@@ -5,11 +5,14 @@ export interface CoverPerimetral {
   largo2: boolean;
 }
 
+export type AlturaDisponible = "5a7" | "mas7";
+
 export interface DeckInput {
   ancho: number;
   largo: number;
   medidaTabla: "2.2" | "2.9";
   sentido: "horizontal" | "vertical";
+  altura: AlturaDisponible;
   coverPerimetral?: CoverPerimetral;
 }
 
@@ -37,18 +40,22 @@ export function calculateDeck(input: DeckInput): DeckResult {
   const superficieConDesperdicio = superficieReal * 1.10;
 
   // Tube direction is PERPENDICULAR to board direction
-  // If boards are horizontal, tubes run vertical and vice versa
   const tubeDirection = input.sentido === "horizontal" ? "vertical" : "horizontal";
 
   // Dimension perpendicular to tubes (spacing axis) and parallel (tube length)
   const spacingDimension = tubeDirection === "vertical" ? ancho : largo;
   const tubeLengthDimension = tubeDirection === "vertical" ? largo : ancho;
 
-  // Internal tubes every 35cm
-  const cantidadTubos = Math.floor(spacingDimension / 0.35) + 1;
+  // Tubes: max 37cm spacing, distributed proportionally
+  // Must start and end with a tube
+  const maxTubeSpacing = 0.37;
+  const numTubeSpaces = Math.ceil(spacingDimension / maxTubeSpacing);
+  const actualTubeSpacing = spacingDimension / numTubeSpaces;
+  const cantidadTubos = numTubeSpaces + 1;
+  
   const tubePositions: number[] = [];
   for (let i = 0; i < cantidadTubos; i++) {
-    tubePositions.push(i * 0.35);
+    tubePositions.push(i * actualTubeSpacing);
   }
 
   // ML = internal tubes + perimeter frame
@@ -56,8 +63,13 @@ export function calculateDeck(input: DeckInput): DeckResult {
   const perimetro = 2 * (ancho + largo);
   const metrosLinealesAluminio = Math.ceil((mlTubosInternos + perimetro) * 100) / 100;
 
-  // Pilotines: 1 every 50cm on each tube line
-  const pilotinesPorTubo = Math.floor(tubeLengthDimension / 0.50) + 1;
+  // Pilotines spacing depends on height
+  // 5-7cm: every 50cm max | >7cm: every 75cm max (40x40 tubes)
+  // Must start and end with a pilotin, distributed proportionally
+  const maxPilotinSpacing = input.altura === "mas7" ? 0.75 : 0.50;
+  const numPilotinSpaces = Math.ceil(tubeLengthDimension / maxPilotinSpacing);
+  const actualPilotinSpacing = tubeLengthDimension / numPilotinSpaces;
+  const pilotinesPorTubo = numPilotinSpaces + 1;
   const pilotines = cantidadTubos * pilotinesPorTubo;
 
   // Pilotin positions for SVG
@@ -65,9 +77,9 @@ export function calculateDeck(input: DeckInput): DeckResult {
   for (let i = 0; i < cantidadTubos; i++) {
     for (let j = 0; j < pilotinesPorTubo; j++) {
       if (tubeDirection === "vertical") {
-        pilotinPositions.push({ x: i * 0.35, y: j * 0.50 });
+        pilotinPositions.push({ x: i * actualTubeSpacing, y: j * actualPilotinSpacing });
       } else {
-        pilotinPositions.push({ x: j * 0.50, y: i * 0.35 });
+        pilotinPositions.push({ x: j * actualPilotinSpacing, y: i * actualTubeSpacing });
       }
     }
   }
