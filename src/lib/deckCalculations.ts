@@ -187,7 +187,8 @@ export function calculateDeck(input: DeckInput): DeckResult {
   for (const tube of tubePositions) {
     // For double tubes, only process pilotines once per pair
     if (tube.isDouble) {
-      const groupKey = Math.round(tube.position * 100);
+      // Group doubles within 5cm of each other (they're ~3cm apart)
+      const groupKey = Math.round(tube.position * 20); // rounds to nearest 5cm
       if (processedDoubleGroups.has(groupKey)) continue;
       processedDoubleGroups.add(groupKey);
     }
