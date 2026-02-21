@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -14,238 +16,356 @@ import {
 import {
   ArrowLeft,
   Plus,
-  Trash2,
+  X,
   Wallpaper,
-  Package,
   Calculator,
   Download,
-  Settings2,
-  X,
+  MessageCircle,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import jsPDF from "jspdf";
 
-// ─── Types ───────────────────────────────────────────────────────
+// ─── Product Catalog ─────────────────────────────────────────────
 interface Product {
   id: string;
   name: string;
-  plateW: number; // ancho placa (m)
-  plateH: number; // alto placa (m)
-  usefulArea: number; // superficie útil por placa (m²) — puede diferir de plateW*plateH por solape
-  orientation: "vertical" | "horizontal";
-  adhesivePerPlate: number; // cartuchos de adhesivo por placa
-  clipsPerPlate: number; // clips/fijaciones por placa
+  line: string;
+  category: "interior" | "exterior";
+  widthMm: number;
+  lengthMm: number;
+  m2PerUnit: number; // m² que cubre 1 panel/pieza
+  unitsPerPack: number; // piezas por caja/stretch
+  pricePerPack: number; // $/pack
+  tone: string;
 }
 
-interface Wall {
+const PRODUCTS: Product[] = [
+  // ─── Interior ────────────────────
+  {
+    id: "wide-roble-natural",
+    name: "Wide Roble Natural",
+    line: "Wide",
+    category: "interior",
+    widthMm: 120,
+    lengthMm: 2750,
+    m2PerUnit: 0.33,
+    unitsPerPack: 1,
+    pricePerPack: 17208,
+    tone: "Marrón claro",
+  },
+  {
+    id: "flat-negro",
+    name: "Flat Negro",
+    line: "Flat",
+    category: "interior",
+    widthMm: 122,
+    lengthMm: 2850,
+    m2PerUnit: 0.3477,
+    unitsPerPack: 1,
+    pricePerPack: 14700,
+    tone: "Negro",
+  },
+  {
+    id: "sharp-forest-25",
+    name: "Sharp Forest 25cm",
+    line: "Sharp",
+    category: "interior",
+    widthMm: 250,
+    lengthMm: 2850,
+    m2PerUnit: 0.7125,
+    unitsPerPack: 1,
+    pricePerPack: 26460,
+    tone: "Marrón oscuro",
+  },
+  {
+    id: "sharp-nature-25",
+    name: "Sharp Nature 25cm",
+    line: "Sharp",
+    category: "interior",
+    widthMm: 250,
+    lengthMm: 2850,
+    m2PerUnit: 0.7125,
+    unitsPerPack: 1,
+    pricePerPack: 26460,
+    tone: "Marrón claro",
+  },
+  {
+    id: "flat-3d-verde-aqua",
+    name: "Flat 3D Verde Aqua",
+    line: "Flat 3D",
+    category: "interior",
+    widthMm: 122,
+    lengthMm: 2850,
+    m2PerUnit: 0.3477,
+    unitsPerPack: 1,
+    pricePerPack: 27930,
+    tone: "Verde Aqua",
+  },
+  {
+    id: "interior-incienso",
+    name: "Incienso",
+    line: "Tradicional",
+    category: "interior",
+    widthMm: 120,
+    lengthMm: 2750,
+    m2PerUnit: 0.33,
+    unitsPerPack: 1,
+    pricePerPack: 19110,
+    tone: "Marrón oscuro",
+  },
+  {
+    id: "elite-roble",
+    name: "Elite Pannel Skin Roble",
+    line: "Elite Pannel Skin",
+    category: "interior",
+    widthMm: 120,
+    lengthMm: 2900,
+    m2PerUnit: 0.348,
+    unitsPerPack: 1,
+    pricePerPack: 24035,
+    tone: "Marrón claro",
+  },
+  {
+    id: "elite-incienso",
+    name: "Elite Pannel Skin Incienso",
+    line: "Elite Pannel Skin",
+    category: "interior",
+    widthMm: 120,
+    lengthMm: 2900,
+    m2PerUnit: 0.348,
+    unitsPerPack: 1,
+    pricePerPack: 24035,
+    tone: "Marrón oscuro",
+  },
+  {
+    id: "elite-gris-onix",
+    name: "Elite Pannel Skin Gris Onix",
+    line: "Elite Pannel Skin",
+    category: "interior",
+    widthMm: 120,
+    lengthMm: 2900,
+    m2PerUnit: 0.348,
+    unitsPerPack: 1,
+    pricePerPack: 24035,
+    tone: "Grisáceo",
+  },
+  {
+    id: "elite-blanco-perla",
+    name: "Elite Pannel Skin Blanco Perla",
+    line: "Elite Pannel Skin",
+    category: "interior",
+    widthMm: 120,
+    lengthMm: 2900,
+    m2PerUnit: 0.348,
+    unitsPerPack: 1,
+    pricePerPack: 24035,
+    tone: "Beige",
+  },
+  {
+    id: "slim-blanco-mate",
+    name: "Slim Blanco Mate",
+    line: "Slim",
+    category: "interior",
+    widthMm: 120,
+    lengthMm: 2750,
+    m2PerUnit: 0.33,
+    unitsPerPack: 1,
+    pricePerPack: 17208,
+    tone: "Blanco",
+  },
+  {
+    id: "slim-roble-natural",
+    name: "Slim Roble Natural",
+    line: "Slim",
+    category: "interior",
+    widthMm: 120,
+    lengthMm: 2750,
+    m2PerUnit: 0.33,
+    unitsPerPack: 1,
+    pricePerPack: 17208,
+    tone: "Marrón claro",
+  },
+  // ─── Exterior ────────────────────
+  {
+    id: "ext-g02-antique",
+    name: "Co-Extruded G02 Antique",
+    line: "Co-Extruded Stretch",
+    category: "exterior",
+    widthMm: 219,
+    lengthMm: 2900,
+    m2PerUnit: 0.6,
+    unitsPerPack: 2,
+    pricePerPack: 60270,
+    tone: "Grisáceo",
+  },
+  {
+    id: "ext-g10-ipe",
+    name: "Co-Extruded G10 Ipe",
+    line: "Co-Extruded Stretch",
+    category: "exterior",
+    widthMm: 219,
+    lengthMm: 2900,
+    m2PerUnit: 0.6,
+    unitsPerPack: 2,
+    pricePerPack: 60270,
+    tone: "Marrón oscuro",
+  },
+  {
+    id: "ext-g07-charcoal",
+    name: "Co-Extruded G07 Charcoal",
+    line: "Co-Extruded Stretch",
+    category: "exterior",
+    widthMm: 219,
+    lengthMm: 2900,
+    m2PerUnit: 0.6,
+    unitsPerPack: 2,
+    pricePerPack: 60270,
+    tone: "Negro",
+  },
+  {
+    id: "ext-g04-teak",
+    name: "Co-Extruded G04 Teak",
+    line: "Co-Extruded Stretch",
+    category: "exterior",
+    widthMm: 219,
+    lengthMm: 2900,
+    m2PerUnit: 0.6,
+    unitsPerPack: 2,
+    pricePerPack: 60270,
+    tone: "Marrón claro",
+  },
+  {
+    id: "ext-g06-silver-grey",
+    name: "Co-Extruded G06 Silver Grey",
+    line: "Co-Extruded Stretch",
+    category: "exterior",
+    widthMm: 219,
+    lengthMm: 2900,
+    m2PerUnit: 0.6,
+    unitsPerPack: 2,
+    pricePerPack: 60270,
+    tone: "Gris plateado",
+  },
+  {
+    id: "ext-g01-white-oak",
+    name: "Co-Extruded G01 White Oak",
+    line: "Co-Extruded Stretch",
+    category: "exterior",
+    widthMm: 219,
+    lengthMm: 2900,
+    m2PerUnit: 0.6,
+    unitsPerPack: 2,
+    pricePerPack: 60270,
+    tone: "Blanco",
+  },
+];
+
+// ─── Types ───────────────────────────────────────────────────────
+interface Room {
   id: number;
   name: string;
   ancho: string;
   alto: string;
 }
 
-const LS_KEY = "floortek_revestimientos_products";
+type InputMode = "total" | "medidas";
 
-function loadProducts(): Product[] {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return [];
-}
-
-function saveProducts(products: Product[]) {
-  localStorage.setItem(LS_KEY, JSON.stringify(products));
-}
-
-// ─── Product Form ────────────────────────────────────────────────
-function ProductForm({
-  onSave,
-  onCancel,
-  initial,
-}: {
-  onSave: (p: Omit<Product, "id">) => void;
-  onCancel: () => void;
-  initial?: Product;
-}) {
-  const [name, setName] = useState(initial?.name ?? "");
-  const [plateW, setPlateW] = useState(initial?.plateW?.toString() ?? "");
-  const [plateH, setPlateH] = useState(initial?.plateH?.toString() ?? "");
-  const [usefulArea, setUsefulArea] = useState(initial?.usefulArea?.toString() ?? "");
-  const [orientation, setOrientation] = useState<"vertical" | "horizontal">(
-    initial?.orientation ?? "vertical"
-  );
-  const [adhesive, setAdhesive] = useState(initial?.adhesivePerPlate?.toString() ?? "0.5");
-  const [clips, setClips] = useState(initial?.clipsPerPlate?.toString() ?? "4");
-
-  const pw = parseFloat(plateW) || 0;
-  const ph = parseFloat(plateH) || 0;
-  const autoArea = pw * ph;
-
-  const handleSave = () => {
-    if (!name.trim() || pw <= 0 || ph <= 0) return;
-    onSave({
-      name: name.trim(),
-      plateW: pw,
-      plateH: ph,
-      usefulArea: parseFloat(usefulArea) || autoArea,
-      orientation,
-      adhesivePerPlate: parseFloat(adhesive) || 0,
-      clipsPerPlate: parseFloat(clips) || 0,
-    });
-  };
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-xs">Nombre del producto</Label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: WPC Nogal 15cm" />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label className="text-xs">Ancho placa (m)</Label>
-          <Input type="number" step="0.01" value={plateW} onChange={(e) => setPlateW(e.target.value)} placeholder="0.15" />
-        </div>
-        <div>
-          <Label className="text-xs">Alto placa (m)</Label>
-          <Input type="number" step="0.01" value={plateH} onChange={(e) => setPlateH(e.target.value)} placeholder="2.90" />
-        </div>
-      </div>
-      <div>
-        <Label className="text-xs">Superficie útil por placa (m²)</Label>
-        <Input
-          type="number"
-          step="0.01"
-          value={usefulArea}
-          onChange={(e) => setUsefulArea(e.target.value)}
-          placeholder={autoArea > 0 ? autoArea.toFixed(4) : "auto"}
-        />
-        <p className="text-xs text-muted-foreground mt-1">
-          Dejá vacío para usar ancho × alto ({autoArea > 0 ? autoArea.toFixed(4) : "—"} m²)
-        </p>
-      </div>
-      <div>
-        <Label className="text-xs">Orientación de colocación</Label>
-        <Select value={orientation} onValueChange={(v) => setOrientation(v as "vertical" | "horizontal")}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="vertical">Vertical</SelectItem>
-            <SelectItem value="horizontal">Horizontal</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label className="text-xs">Adhesivo por placa</Label>
-          <Input type="number" step="0.1" value={adhesive} onChange={(e) => setAdhesive(e.target.value)} />
-        </div>
-        <div>
-          <Label className="text-xs">Clips por placa</Label>
-          <Input type="number" step="1" value={clips} onChange={(e) => setClips(e.target.value)} />
-        </div>
-      </div>
-      <div className="flex gap-2 pt-2">
-        <Button onClick={handleSave} className="flex-1">
-          {initial ? "Guardar cambios" : "Agregar producto"}
-        </Button>
-        <Button variant="outline" onClick={onCancel}>
-          Cancelar
-        </Button>
-      </div>
-    </div>
-  );
+// ─── Helpers ─────────────────────────────────────────────────────
+function formatPrice(n: number): string {
+  return n.toLocaleString("es-AR", { style: "currency", currency: "ARS", minimumFractionDigits: 0 });
 }
 
 // ─── Main Component ──────────────────────────────────────────────
 const RevestimientosCalculator = () => {
   const navigate = useNavigate();
-  const [products, setProducts] = useState<Product[]>(loadProducts);
-  const [selectedProductId, setSelectedProductId] = useState<string>("");
-  const [walls, setWalls] = useState<Wall[]>([{ id: 1, name: "Pared 1", ancho: "", alto: "" }]);
-  const [nextId, setNextId] = useState(2);
-  const [showProductForm, setShowProductForm] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  useEffect(() => {
-    saveProducts(products);
-  }, [products]);
+  // Product
+  const [categoryFilter, setCategoryFilter] = useState<"interior" | "exterior">("interior");
+  const [productId, setProductId] = useState(PRODUCTS[0].id);
+  const product = PRODUCTS.find((p) => p.id === productId) ?? PRODUCTS[0];
 
-  // Auto-select first product
-  useEffect(() => {
-    if (!selectedProductId && products.length > 0) {
-      setSelectedProductId(products[0].id);
-    }
-  }, [products, selectedProductId]);
+  // Input mode
+  const [inputMode, setInputMode] = useState<InputMode>("medidas");
 
-  const selectedProduct = products.find((p) => p.id === selectedProductId) ?? null;
+  // Total m² mode
+  const [totalM2Str, setTotalM2Str] = useState("");
 
-  const addProduct = (data: Omit<Product, "id">) => {
-    const newP: Product = { ...data, id: crypto.randomUUID() };
-    setProducts((prev) => [...prev, newP]);
-    setSelectedProductId(newP.id);
-    setShowProductForm(false);
+  // Por Medidas mode
+  const [rooms, setRooms] = useState<Room[]>([{ id: 1, name: "Ambiente 1", ancho: "", alto: "" }]);
+  const [nextRoomId, setNextRoomId] = useState(2);
+
+  // Options
+  const [includeWaste, setIncludeWaste] = useState(false);
+  const wastePercent = 10;
+
+  // Filter products by category
+  const filteredProducts = PRODUCTS.filter((p) => p.category === categoryFilter);
+
+  // When category changes, auto-select first product of that category
+  const handleCategoryChange = (cat: "interior" | "exterior") => {
+    setCategoryFilter(cat);
+    const first = PRODUCTS.find((p) => p.category === cat);
+    if (first) setProductId(first.id);
   };
 
-  const updateProduct = (data: Omit<Product, "id">) => {
-    if (!editingProduct) return;
-    setProducts((prev) =>
-      prev.map((p) => (p.id === editingProduct.id ? { ...p, ...data } : p))
-    );
-    setEditingProduct(null);
+  // Room management
+  const addRoom = () => {
+    setRooms((prev) => [...prev, { id: nextRoomId, name: `Ambiente ${nextRoomId}`, ancho: "", alto: "" }]);
+    setNextRoomId((n) => n + 1);
   };
-
-  const deleteProduct = (id: string) => {
-    setProducts((prev) => prev.filter((p) => p.id !== id));
-    if (selectedProductId === id) setSelectedProductId("");
+  const removeRoom = (id: number) => {
+    if (rooms.length <= 1) return;
+    setRooms((prev) => prev.filter((r) => r.id !== id));
   };
-
-  const addWall = () => {
-    setWalls((prev) => [...prev, { id: nextId, name: `Pared ${nextId}`, ancho: "", alto: "" }]);
-    setNextId((n) => n + 1);
-  };
-
-  const removeWall = (id: number) => {
-    if (walls.length <= 1) return;
-    setWalls((prev) => prev.filter((w) => w.id !== id));
-  };
-
-  const updateWall = (id: number, field: "ancho" | "alto", value: string) => {
-    setWalls((prev) => prev.map((w) => (w.id === id ? { ...w, [field]: value } : w)));
+  const updateRoom = (id: number, field: "ancho" | "alto", value: string) => {
+    setRooms((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
   };
 
   // ─── Calculations ──────────────────────────────────────────────
-  const wallData = walls.map((w) => {
-    const ancho = parseFloat(w.ancho) || 0;
-    const alto = parseFloat(w.alto) || 0;
-    const area = ancho * alto;
-    let plates = 0;
-    if (selectedProduct && area > 0 && selectedProduct.usefulArea > 0) {
-      plates = Math.ceil(area / selectedProduct.usefulArea);
+  const calc = useMemo(() => {
+    let baseM2 = 0;
+
+    if (inputMode === "total") {
+      baseM2 = parseFloat(totalM2Str) || 0;
+    } else {
+      baseM2 = rooms.reduce((sum, r) => {
+        const w = parseFloat(r.ancho) || 0;
+        const h = parseFloat(r.alto) || 0;
+        return sum + w * h;
+      }, 0);
     }
-    return { ...w, anchoN: ancho, altoN: alto, area, plates };
+
+    const wasteM2 = includeWaste ? baseM2 * (wastePercent / 100) : 0;
+    const totalM2 = baseM2 + wasteM2;
+
+    const totalUnits = product.m2PerUnit > 0 ? Math.ceil(totalM2 / product.m2PerUnit) : 0;
+    const totalPacks = Math.ceil(totalUnits / product.unitsPerPack);
+    const totalPrice = totalPacks * product.pricePerPack;
+    const materialM2 = totalUnits * product.m2PerUnit;
+
+    return {
+      baseM2,
+      wasteM2,
+      totalM2,
+      totalUnits,
+      totalPacks,
+      totalPrice,
+      materialM2,
+    };
+  }, [inputMode, totalM2Str, rooms, product, includeWaste, wastePercent]);
+
+  const roomData = rooms.map((r) => {
+    const w = parseFloat(r.ancho) || 0;
+    const h = parseFloat(r.alto) || 0;
+    return { ...r, area: w * h };
   });
 
-  const totalArea = wallData.reduce((s, w) => s + w.area, 0);
-  const totalPlates = wallData.reduce((s, w) => s + w.plates, 0);
-  const totalAdhesive = selectedProduct
-    ? Math.ceil(totalPlates * selectedProduct.adhesivePerPlate)
-    : 0;
-  const totalClips = selectedProduct
-    ? Math.ceil(totalPlates * selectedProduct.clipsPerPlate)
-    : 0;
-  const hasData = totalArea > 0 && selectedProduct !== null;
+  const hasData = calc.baseM2 > 0;
+
+  // Pack label
+  const packLabel = product.unitsPerPack > 1 ? `Pack x${product.unitsPerPack}` : "Panel";
 
   // ─── PDF Export ────────────────────────────────────────────────
   const handleExportPDF = () => {
-    if (!selectedProduct) return;
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const w = doc.internal.pageSize.getWidth();
 
@@ -257,7 +377,7 @@ const RevestimientosCalculator = () => {
     doc.text("REVESTIMIENTOS", 14, 16);
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text("Calculadora de Materiales", 14, 24);
+    doc.text("Cotización de Materiales", 14, 24);
     const today = new Date().toLocaleDateString("es-AR");
     doc.setFontSize(9);
     doc.text(today, w - 14, 16, { align: "right" });
@@ -266,44 +386,43 @@ const RevestimientosCalculator = () => {
     doc.setTextColor(40, 40, 40);
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text("Producto", 14, y);
-    y += 7;
+    doc.text("Producto", 14, y); y += 7;
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(`${selectedProduct.name} — ${selectedProduct.plateW}m × ${selectedProduct.plateH}m`, 14, y);
-    y += 6;
-    doc.text(`Sup. útil: ${selectedProduct.usefulArea.toFixed(4)} m² | Orientación: ${selectedProduct.orientation}`, 14, y);
-    y += 10;
+    doc.text(`${product.name} — Línea ${product.line}`, 14, y); y += 6;
+    doc.text(`Medida: ${product.widthMm}mm × ${product.lengthMm}mm | ${product.m2PerUnit} m²/panel`, 14, y); y += 6;
+    doc.text(`Uso: ${product.category === "interior" ? "Interior" : "Exterior"} | Tono: ${product.tone}`, 14, y); y += 6;
+    doc.text(`Precio: ${formatPrice(product.pricePerPack)} / ${packLabel}`, 14, y); y += 10;
 
-    // Walls
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("Paredes", 14, y);
-    y += 8;
-
-    wallData
-      .filter((wd) => wd.area > 0)
-      .forEach((wd) => {
+    // Surfaces
+    if (inputMode === "medidas") {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Superficies", 14, y); y += 8;
+      roomData.filter((r) => r.area > 0).forEach((r) => {
+        const rw = parseFloat(r.ancho) || 0;
+        const rh = parseFloat(r.alto) || 0;
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        doc.text(`${wd.name}: ${wd.anchoN}m × ${wd.altoN}m = ${wd.area.toFixed(2)} m² → ${wd.plates} placas`, 14, y);
-        y += 6;
+        doc.text(`${r.name}: ${rw}m × ${rh}m = ${r.area.toFixed(2)} m²`, 14, y); y += 6;
       });
-
-    y += 6;
+      y += 4;
+    }
 
     // Summary
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.text("Resumen de Materiales", 14, y);
-    y += 8;
+    doc.text("Resumen Estimado", 14, y); y += 8;
 
     const rows = [
-      ["Concepto", "Cantidad"],
-      ["Superficie total", `${totalArea.toFixed(2)} m²`],
-      ["Placas necesarias", String(totalPlates)],
-      ["Adhesivo", String(totalAdhesive)],
-      ["Clips / Fijaciones", String(totalClips)],
+      ["Concepto", "Valor"],
+      ["Superficie base", `${calc.baseM2.toFixed(2)} m²`],
+      ...(includeWaste ? [[`+ ${wastePercent}% desperdicio`, `${calc.wasteM2.toFixed(2)} m²`]] : []),
+      ["Superficie total", `${calc.totalM2.toFixed(2)} m²`],
+      ["Paneles necesarios", `${calc.totalUnits}`],
+      [`${packLabel}s a comprar`, `${calc.totalPacks}`],
+      ["Material total", `${calc.materialM2.toFixed(2)} m²`],
+      ["Precio estimado", formatPrice(calc.totalPrice)],
     ];
 
     doc.setFontSize(10);
@@ -329,9 +448,19 @@ const RevestimientosCalculator = () => {
     y += 8;
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
-    doc.text("Generado por Floortek — Calculadora de Revestimientos | tiendapisos.com", 14, y);
+    doc.text("Generado por Floortek — Cotizador de Revestimientos | tiendapisos.com", 14, y);
 
-    doc.save(`Revestimientos_${totalArea.toFixed(0)}m2.pdf`);
+    doc.save(`Revestimientos_${product.name.replace(/\s/g, "_")}_${calc.totalM2.toFixed(0)}m2.pdf`);
+  };
+
+  // WhatsApp
+  const handleWhatsApp = () => {
+    const text = `Hola, estoy cotizando *${product.name}* (${product.category === "interior" ? "Interior" : "Exterior"}).%0A` +
+      `Superficie: ${calc.totalM2.toFixed(2)} m²%0A` +
+      `Paneles: ${calc.totalUnits}%0A` +
+      `${packLabel}s: ${calc.totalPacks}%0A` +
+      `Estimado: ${formatPrice(calc.totalPrice)}`;
+    window.open(`https://wa.me/5491122393653?text=${text}`, "_blank");
   };
 
   return (
@@ -347,13 +476,10 @@ const RevestimientosCalculator = () => {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="flex-1">
-            <h1
-              className="text-xl font-bold tracking-tight"
-              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-            >
+            <h1 className="text-xl font-bold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
               REVESTIMIENTOS
             </h1>
-            <p className="text-xs text-primary-foreground/70">Calculadora de Materiales</p>
+            <p className="text-xs text-primary-foreground/70">Cotizador de Materiales</p>
           </div>
           {hasData && (
             <Button size="sm" variant="secondary" onClick={handleExportPDF} className="gap-1.5">
@@ -365,154 +491,133 @@ const RevestimientosCalculator = () => {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-5">
-        {/* Product selector */}
+        {/* Category + Product selector */}
         <Card>
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Package className="w-4 h-4 text-primary" />
+              <Wallpaper className="w-4 h-4 text-primary" />
               Producto
             </CardTitle>
-            <Dialog open={showProductForm} onOpenChange={setShowProductForm}>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
-                  <Plus className="w-3.5 h-3.5" />
-                  Nuevo
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Nuevo Producto</DialogTitle>
-                </DialogHeader>
-                <ProductForm onSave={addProduct} onCancel={() => setShowProductForm(false)} />
-              </DialogContent>
-            </Dialog>
           </CardHeader>
-          <CardContent>
-            {products.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No hay productos cargados. Agregá uno para comenzar.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                <Select value={selectedProductId} onValueChange={setSelectedProductId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccioná un producto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {products.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <CardContent className="space-y-3">
+            {/* Interior / Exterior toggle */}
+            <Tabs value={categoryFilter} onValueChange={(v) => handleCategoryChange(v as "interior" | "exterior")}>
+              <TabsList className="w-full">
+                <TabsTrigger value="interior" className="flex-1">Interior</TabsTrigger>
+                <TabsTrigger value="exterior" className="flex-1">Exterior</TabsTrigger>
+              </TabsList>
+            </Tabs>
 
-                {selectedProduct && (
-                  <div className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
-                    <div className="text-xs text-muted-foreground space-y-0.5">
-                      <p>
-                        Placa: {selectedProduct.plateW}m × {selectedProduct.plateH}m — Útil:{" "}
-                        {selectedProduct.usefulArea.toFixed(4)} m²
-                      </p>
-                      <p>
-                        Orientación: {selectedProduct.orientation} | Adhesivo:{" "}
-                        {selectedProduct.adhesivePerPlate}/placa | Clips:{" "}
-                        {selectedProduct.clipsPerPlate}/placa
-                      </p>
-                    </div>
-                    <div className="flex gap-1 shrink-0">
-                      <Dialog
-                        open={editingProduct?.id === selectedProduct.id}
-                        onOpenChange={(open) => !open && setEditingProduct(null)}
-                      >
-                        <DialogTrigger asChild>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                            onClick={() => setEditingProduct(selectedProduct)}
-                          >
-                            <Settings2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Editar Producto</DialogTitle>
-                          </DialogHeader>
-                          {editingProduct && (
-                            <ProductForm
-                              initial={editingProduct}
-                              onSave={updateProduct}
-                              onCancel={() => setEditingProduct(null)}
-                            />
-                          )}
-                        </DialogContent>
-                      </Dialog>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-destructive"
-                        onClick={() => deleteProduct(selectedProduct.id)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            <Select value={productId} onValueChange={setProductId}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredProducts.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name} — {p.tone}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Product info strip */}
+            <div className="bg-muted/50 rounded-lg px-3 py-2.5 text-xs text-muted-foreground space-y-0.5">
+              <p className="font-medium text-foreground text-sm">
+                {product.name} <span className="text-muted-foreground font-normal">— Línea {product.line}</span>
+              </p>
+              <p>
+                Medida: {product.widthMm}mm × {product.lengthMm}mm | {product.m2PerUnit} m²/panel
+              </p>
+              <p className="font-semibold text-foreground">
+                {formatPrice(product.pricePerPack)} / {packLabel}
+              </p>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Walls */}
+        {/* Calculator */}
         <Card>
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Wallpaper className="w-4 h-4 text-primary" />
-              Paredes
+              <Calculator className="w-4 h-4 text-primary" />
+              Cotizador
             </CardTitle>
-            <Button size="sm" variant="outline" onClick={addWall} className="gap-1 h-7 text-xs">
-              <Plus className="w-3.5 h-3.5" />
-              Agregar
-            </Button>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {walls.map((w) => (
-              <div key={w.id} className="flex items-end gap-2">
-                <div className="flex-1 grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-xs">Ancho (m)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={w.ancho}
-                      onChange={(e) => updateWall(w.id, "ancho", e.target.value)}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Alto (m)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={w.alto}
-                      onChange={(e) => updateWall(w.id, "alto", e.target.value)}
-                      placeholder="0.00"
-                    />
-                  </div>
+          <CardContent className="space-y-4">
+            <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as InputMode)}>
+              <TabsList className="w-full">
+                <TabsTrigger value="total" className="flex-1">M² Totales</TabsTrigger>
+                <TabsTrigger value="medidas" className="flex-1">Por Medidas</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="total" className="mt-4 space-y-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Área a cubrir</Label>
+                  <p className="text-xs text-muted-foreground mb-2">Ingresá los m² totales de la superficie.</p>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={totalM2Str}
+                    onChange={(e) => setTotalM2Str(e.target.value)}
+                    placeholder="Ej: 12.5"
+                  />
                 </div>
-                {walls.length > 1 && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-10 w-10 text-muted-foreground hover:text-destructive shrink-0"
-                    onClick={() => removeWall(w.id)}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-            ))}
+              </TabsContent>
+
+              <TabsContent value="medidas" className="mt-4 space-y-3">
+                <p className="text-xs text-muted-foreground">Medidas lineales.</p>
+                {rooms.map((r) => (
+                  <div key={r.id} className="flex items-end gap-2">
+                    <div className="flex-1 grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Ancho (m)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={r.ancho}
+                          onChange={(e) => updateRoom(r.id, "ancho", e.target.value)}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Alto (m)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={r.alto}
+                          onChange={(e) => updateRoom(r.id, "alto", e.target.value)}
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+                    {rooms.length > 1 && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-10 w-10 text-muted-foreground hover:text-destructive shrink-0"
+                        onClick={() => removeRoom(r.id)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button size="sm" variant="outline" onClick={addRoom} className="gap-1 text-xs w-full">
+                  <Plus className="w-3.5 h-3.5" />
+                  Agregar Ambiente
+                </Button>
+              </TabsContent>
+            </Tabs>
+
+            {/* Waste toggle */}
+            <label className="flex items-center gap-2 cursor-pointer pt-1">
+              <Checkbox
+                checked={includeWaste}
+                onCheckedChange={(checked) => setIncludeWaste(checked === true)}
+              />
+              <span className="text-sm">Incluir {wastePercent}% extra por recortes</span>
+            </label>
           </CardContent>
         </Card>
 
@@ -520,53 +625,66 @@ const RevestimientosCalculator = () => {
         {hasData && (
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Calculator className="w-4 h-4 text-primary" />
-                Resultado
-              </CardTitle>
+              <CardTitle className="text-base">Resumen estimado</CardTitle>
             </CardHeader>
             <CardContent>
-              {/* Per-wall breakdown */}
-              <div className="space-y-1 mb-4">
-                {wallData
-                  .filter((wd) => wd.area > 0)
-                  .map((wd) => (
-                    <div
-                      key={wd.id}
-                      className="flex justify-between text-sm py-1 border-b border-border/50 last:border-0"
-                    >
-                      <span className="text-muted-foreground">
-                        {wd.name}: {wd.anchoN}m × {wd.altoN}m
-                      </span>
-                      <span className="font-medium">
-                        {wd.area.toFixed(2)} m² → {wd.plates} placas
-                      </span>
-                    </div>
-                  ))}
+              {/* Per-room breakdown (only in medidas mode) */}
+              {inputMode === "medidas" && (
+                <div className="space-y-1 mb-4">
+                  {roomData
+                    .filter((r) => r.area > 0)
+                    .map((r) => (
+                      <div
+                        key={r.id}
+                        className="flex justify-between text-sm py-1 border-b border-border/50 last:border-0"
+                      >
+                        <span className="text-muted-foreground">
+                          {r.name}: {parseFloat(r.ancho) || 0}m × {parseFloat(r.alto) || 0}m
+                        </span>
+                        <span className="font-medium">{r.area.toFixed(2)} m²</span>
+                      </div>
+                    ))}
+                </div>
+              )}
+
+              {/* Summary box */}
+              <div className="bg-accent/50 rounded-lg p-4 space-y-2.5">
+                {/* Big number */}
+                <div className="text-center pb-2 border-b border-border/50">
+                  <p className="text-3xl font-bold text-foreground">{calc.totalPacks} {packLabel}{calc.totalPacks !== 1 ? "s" : ""}</p>
+                  <p className="text-xl font-semibold text-primary">{formatPrice(calc.totalPrice)}</p>
+                </div>
+
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Cubriendo:</span>
+                  <span>{calc.baseM2.toFixed(2)}m²</span>
+                </div>
+                {includeWaste && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">+ {wastePercent}% Desp.:</span>
+                    <span className="font-semibold">{calc.totalM2.toFixed(2)}m²</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Material Total:</span>
+                  <span>{calc.materialM2.toFixed(2)}m²</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Paneles:</span>
+                  <span>{calc.totalUnits}</span>
+                </div>
               </div>
 
-              {/* Summary */}
-              <div className="bg-accent/50 rounded-lg p-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Superficie total</span>
-                  <span className="font-semibold">{totalArea.toFixed(2)} m²</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Placas necesarias</span>
-                  <span className="font-semibold">{totalPlates}</span>
-                </div>
-                {totalAdhesive > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span>Adhesivo</span>
-                    <span className="font-semibold">{totalAdhesive}</span>
-                  </div>
-                )}
-                {totalClips > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span>Clips / Fijaciones</span>
-                    <span className="font-semibold">{totalClips}</span>
-                  </div>
-                )}
+              {/* Actions */}
+              <div className="flex gap-2 mt-4">
+                <Button className="flex-1 gap-2" onClick={handleWhatsApp}>
+                  <MessageCircle className="w-4 h-4" />
+                  Consultar Asesor
+                </Button>
+                <Button variant="outline" className="gap-1.5" onClick={handleExportPDF}>
+                  <Download className="w-4 h-4" />
+                  PDF
+                </Button>
               </div>
             </CardContent>
           </Card>
