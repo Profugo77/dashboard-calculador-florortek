@@ -53,28 +53,27 @@ function calcWall(wallWidth: number, wallHeight: number, panel: Panel) {
 
   let panelsNeeded: number;
 
-  if (wallHeight <= panelH / 2) {
-    // Cada panel rinde 2 piezas → dividimos entre 2
-    panelsNeeded = Math.ceil(panelsAcross / 2);
-  } else if (wallHeight <= panelH) {
-    // 1 panel por columna
-    panelsNeeded = panelsAcross;
+  if (wallHeight <= panelH) {
+    // Pared más baja o igual que el panel
+    // ¿Cuántas piezas de wallHeight saco de un solo panel?
+    const piecesPerPanel = Math.floor(panelH / wallHeight);
+    panelsNeeded = Math.ceil(panelsAcross / piecesPerPanel);
   } else {
-    // Pared más alta que el panel
+    // Pared más alta que el panel → necesito empalmes
     const fullSections = Math.floor(wallHeight / panelH);
     const remainder = wallHeight - fullSections * panelH;
 
+    // Paneles para las secciones completas (1 panel por sección por columna)
+    const fullPanels = panelsAcross * fullSections;
+
     if (remainder <= 0.001) {
       // Encaja exacto
-      panelsNeeded = panelsAcross * piecesPerColumn;
-    } else if (remainder <= panelH / 2) {
-      // El sobrante es chico: cada panel cortado rinde 2 piezas de remanente
-      const fullPanels = panelsAcross * fullSections;
-      const remainderPanels = Math.ceil(panelsAcross / 2);
-      panelsNeeded = fullPanels + remainderPanels;
+      panelsNeeded = fullPanels;
     } else {
-      // El sobrante es más de la mitad → 1 panel extra por columna
-      panelsNeeded = panelsAcross * piecesPerColumn;
+      // ¿Cuántas piezas de remainder saco de un panel?
+      const piecesPerPanel = Math.floor(panelH / remainder);
+      const remainderPanels = Math.ceil(panelsAcross / piecesPerPanel);
+      panelsNeeded = fullPanels + remainderPanels;
     }
   }
 
