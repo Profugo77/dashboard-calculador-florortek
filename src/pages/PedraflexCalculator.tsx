@@ -621,9 +621,14 @@ const PedraflexCalculator = () => {
                       <p className="text-xs font-medium text-muted-foreground">
                         {getModeLabel(layout.mode)} — {getApproachLabel(layout.approach)}
                       </p>
-                      <span className="text-xs font-semibold text-primary">
-                        {layout.plateCount} placas
-                      </span>
+                      <div className="flex gap-3 text-xs">
+                        <span className="font-semibold text-primary">
+                          {layout.plateCount} placas
+                        </span>
+                        <span className="text-muted-foreground">
+                          {Math.ceil(layout.plateCount * plate.adhesivePer)} adhesivos
+                        </span>
+                      </div>
                     </div>
                     <WallScheme
                       wallW={w.anchoN}
