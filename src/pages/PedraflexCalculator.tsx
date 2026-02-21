@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ArrowLeft, Plus, Trash2, Calculator, LayoutGrid, Sparkles } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, Plus, Trash2, Calculator, LayoutGrid, Sparkles, Download } from "lucide-react";
+import jsPDF from "jspdf";
 
 interface Wall {
   id: number;
@@ -15,7 +17,14 @@ interface Wall {
 }
 
 type PlateSize = "small" | "large";
-type LayoutMode = "optimized" | "aesthetic";
+type LayoutMode = "stacked" | "stacked-rotated" | "brick" | "brick-rotated";
+
+const LAYOUT_OPTIONS: { value: LayoutMode; label: string; desc: string }[] = [
+  { value: "stacked", label: "Apilado vertical", desc: "Placas alineadas una arriba de otra" },
+  { value: "stacked-rotated", label: "Apilado horizontal", desc: "Placas rotadas, alineadas" },
+  { value: "brick", label: "Trabado vertical", desc: "Desfase ½ placa, orientación vertical" },
+  { value: "brick-rotated", label: "Trabado horizontal", desc: "Desfase ½ placa, orientación horizontal" },
+];
 
 const PLATES = {
   small: { w: 0.61, h: 1.22, label: "61 cm × 1.22 m", adhesivePer: 0.5 },
@@ -27,7 +36,6 @@ interface PlacedPlate {
   y: number;
   w: number;
   h: number;
-  rotated: boolean;
   partial: boolean;
 }
 
@@ -38,75 +46,52 @@ function layoutWall(
   mode: LayoutMode
 ): PlacedPlate[] {
   const placed: PlacedPlate[] = [];
+  const rotated = mode === "stacked-rotated" || mode === "brick-rotated";
+  const brick = mode === "brick" || mode === "brick-rotated";
+  const pw = rotated ? plate.h : plate.w;
+  const ph = rotated ? plate.w : plate.h;
 
-  if (mode === "aesthetic") {
-    // Plates always vertical (h > w), stacked in rows, like brickwork
-    const pw = plate.w;
-    const ph = plate.h;
-    let y = 0;
-    let row = 0;
-    while (y < wallH) {
-      const remainH = wallH - y;
-      const effectiveH = Math.min(ph, remainH);
-      const offset = row % 2 === 1 ? pw / 2 : 0;
-      let x = -offset;
-      if (x < 0) {
-        // partial plate at start
-        placed.push({ x: 0, y, w: pw + x < 0 ? 0 : pw + x, h: effectiveH, rotated: false, partial: true });
-        x += pw;
-      }
-      while (x < wallW) {
-        const remainW = wallW - x;
-        const effectiveW = Math.min(pw, remainW);
-        placed.push({
-          x,
-          y,
-          w: effectiveW,
-          h: effectiveH,
-          rotated: false,
-          partial: effectiveW < pw - 0.001 || effectiveH < ph - 0.001,
-        });
-        x += pw;
-      }
-      y += ph;
-      row++;
-    }
-  } else {
-    // Optimized: try both orientations, pick the one that uses fewer plates
-    const layouts: PlacedPlate[][] = [];
+  let y = 0;
+  let row = 0;
+  while (y < wallH) {
+    const remainH = wallH - y;
+    const effectiveH = Math.min(ph, remainH);
+    const offset = brick && row % 2 === 1 ? pw / 2 : 0;
+    let x = -offset;
 
-    for (const rotated of [false, true]) {
-      const pw = rotated ? plate.h : plate.w;
-      const ph = rotated ? plate.w : plate.h;
-      const current: PlacedPlate[] = [];
-      let y = 0;
-      while (y < wallH) {
-        const remainH = wallH - y;
-        const effectiveH = Math.min(ph, remainH);
-        let x = 0;
-        while (x < wallW) {
-          const remainW = wallW - x;
-          const effectiveW = Math.min(pw, remainW);
-          current.push({
-            x,
-            y,
-            w: effectiveW,
-            h: effectiveH,
-            rotated,
-            partial: effectiveW < pw - 0.001 || effectiveH < ph - 0.001,
-          });
-          x += pw;
-        }
-        y += ph;
+    if (x < 0) {
+      const partialW = pw + x;
+      if (partialW > 0.001) {
+        placed.push({ x: 0, y, w: partialW, h: effectiveH, partial: true });
       }
-      layouts.push(current);
+      x += pw;
     }
 
-    const best = layouts.reduce((a, b) => (a.length <= b.length ? a : b));
-    placed.push(...best);
+    while (x < wallW) {
+      const remainW = wallW - x;
+      const effectiveW = Math.min(pw, remainW);
+      placed.push({
+        x,
+        y,
+        w: effectiveW,
+        h: effectiveH,
+        partial: effectiveW < pw - 0.001 || effectiveH < ph - 0.001,
+      });
+      x += pw;
+    }
+    y += ph;
+    row++;
   }
 
   return placed;
+}
+
+interface WallCalcData extends Wall {
+  anchoN: number;
+  altoN: number;
+  area: number;
+  platesNeeded: number;
+  layouts: { mode: LayoutMode; plates: PlacedPlate[] }[];
 }
 
 const PedraflexCalculator = () => {
@@ -115,8 +100,23 @@ const PedraflexCalculator = () => {
     { id: 1, name: "Pared 1", ancho: "", alto: "" },
   ]);
   const [plateSize, setPlateSize] = useState<PlateSize>("small");
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>("optimized");
+  const [selectedModes, setSelectedModes] = useState<LayoutMode[]>(["stacked"]);
   const [nextId, setNextId] = useState(2);
+
+  const toggleMode = (mode: LayoutMode) => {
+    setSelectedModes((prev) => {
+      if (prev.includes(mode)) {
+        if (prev.length === 1) return prev; // keep at least one
+        return prev.filter((m) => m !== mode);
+      }
+      return [...prev, mode];
+    });
+  };
+
+  const selectAll = () => {
+    const allModes: LayoutMode[] = LAYOUT_OPTIONS.map((o) => o.value);
+    setSelectedModes((prev) => (prev.length === allModes.length ? [allModes[0]] : allModes));
+  };
 
   const addWall = () => {
     setWalls((prev) => [
@@ -140,23 +140,183 @@ const PedraflexCalculator = () => {
   const plate = PLATES[plateSize];
   const plateArea = plate.w * plate.h;
 
-  const wallData = walls.map((w) => {
+  const wallData: WallCalcData[] = walls.map((w) => {
     const ancho = parseFloat(w.ancho) || 0;
     const alto = parseFloat(w.alto) || 0;
     const area = ancho * alto;
     const platesNeeded = area > 0 ? Math.ceil(area / plateArea) : 0;
-    const layout =
+    const layouts =
       ancho > 0 && alto > 0
-        ? layoutWall(ancho, alto, plate, layoutMode)
+        ? selectedModes.map((mode) => ({
+            mode,
+            plates: layoutWall(ancho, alto, plate, mode),
+          }))
         : [];
-    return { ...w, anchoN: ancho, altoN: alto, area, platesNeeded, layout };
+    return { ...w, anchoN: ancho, altoN: alto, area, platesNeeded, layouts };
   });
 
   const totalArea = wallData.reduce((s, w) => s + w.area, 0);
   const totalPlates = wallData.reduce((s, w) => s + w.platesNeeded, 0);
   const totalAdhesive = Math.ceil(totalPlates * plate.adhesivePer);
-
   const hasData = wallData.some((w) => w.area > 0);
+
+  const getModeLabel = (mode: LayoutMode) =>
+    LAYOUT_OPTIONS.find((o) => o.value === mode)?.label ?? mode;
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+
+    // Header
+    doc.setFillColor(0, 133, 119);
+    doc.rect(0, 0, pageW, 32, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("PEDRAFLEX", 14, 16);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Calculadora de Placas", 14, 24);
+    const today = new Date().toLocaleDateString("es-AR");
+    doc.setFontSize(9);
+    doc.text(today, pageW - 14, 16, { align: "right" });
+
+    let y = 44;
+
+    // Config
+    doc.setTextColor(40, 40, 40);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Configuración", 14, y);
+    y += 7;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Placa: ${plate.label}`, 14, y);
+    y += 6;
+    doc.text(`Modos: ${selectedModes.map(getModeLabel).join(", ")}`, 14, y);
+    y += 10;
+
+    // Summary table
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Resumen", 14, y);
+    y += 8;
+    doc.setFontSize(10);
+
+    const rows = [
+      ["Concepto", "Cantidad"],
+      ["Superficie total (m²)", totalArea.toFixed(2)],
+      ["Placas necesarias", String(totalPlates)],
+      ["Cartuchos de adhesivo", String(totalAdhesive)],
+    ];
+
+    rows.forEach((row, i) => {
+      if (i === 0) {
+        doc.setFillColor(0, 133, 119);
+        doc.rect(12, y - 4, pageW - 24, 7, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+      } else {
+        doc.setTextColor(40, 40, 40);
+        doc.setFont("helvetica", "normal");
+        if (i % 2 === 0) {
+          doc.setFillColor(240, 248, 246);
+          doc.rect(12, y - 4, pageW - 24, 7, "F");
+        }
+      }
+      doc.text(row[0], 14, y);
+      doc.text(row[1], pageW - 14, y, { align: "right" });
+      y += 7;
+    });
+
+    y += 6;
+
+    // Wall details
+    wallData
+      .filter((w) => w.area > 0)
+      .forEach((w) => {
+        if (y + 20 > pageH - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(40, 40, 40);
+        doc.text(`${w.name} — ${w.anchoN}m × ${w.altoN}m (${w.area.toFixed(2)} m², ${w.platesNeeded} placas)`, 14, y);
+        y += 8;
+
+        // Draw each layout mode
+        w.layouts.forEach((layout) => {
+          const maxDiagW = pageW - 28;
+          const maxDiagH = 70;
+          const scale = Math.min(maxDiagW / w.anchoN, maxDiagH / w.altoN);
+          const dw = w.anchoN * scale;
+          const dh = w.altoN * scale;
+
+          if (y + dh + 18 > pageH - 20) {
+            doc.addPage();
+            y = 20;
+          }
+
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(80, 80, 80);
+          doc.text(getModeLabel(layout.mode), 14, y);
+          y += 4;
+
+          const ox = 14 + (maxDiagW - dw) / 2;
+          const oy = y;
+
+          // Wall outline
+          doc.setDrawColor(180, 180, 180);
+          doc.setLineWidth(0.3);
+          doc.rect(ox, oy, dw, dh, "S");
+
+          // Plates
+          const colors = [
+            [200, 230, 225],
+            [180, 215, 210],
+            [210, 225, 235],
+            [195, 230, 220],
+          ];
+
+          layout.plates.forEach((p, pi) => {
+            const rx = ox + p.x * scale;
+            const ry = oy + p.y * scale;
+            const rw = Math.min(p.w * scale, dw - p.x * scale);
+            const rh = Math.min(p.h * scale, dh - p.y * scale);
+            if (rw <= 0 || rh <= 0) return;
+            const c = p.partial ? [230, 230, 230] : colors[pi % colors.length];
+            doc.setFillColor(c[0], c[1], c[2]);
+            doc.setDrawColor(120, 120, 120);
+            doc.setLineWidth(0.15);
+            doc.rect(rx, ry, rw, rh, "FD");
+          });
+
+          // Dims
+          doc.setFontSize(7);
+          doc.setTextColor(80, 80, 80);
+          doc.text(`${w.anchoN}m`, ox + dw / 2, oy - 1.5, { align: "center" });
+          doc.text(`${w.altoN}m`, ox - 3, oy + dh / 2, { align: "center", angle: 90 });
+
+          y = oy + dh + 6;
+        });
+
+        y += 4;
+      });
+
+    // Footer
+    if (y + 10 > pageH - 10) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text("Generado por Floortek — Calculadora Pedraflex | tiendapisos.com", 14, y);
+
+    doc.save(`Pedraflex_${totalArea.toFixed(0)}m2.pdf`);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -168,7 +328,7 @@ const PedraflexCalculator = () => {
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div>
+          <div className="flex-1">
             <h1
               className="text-xl font-bold tracking-tight"
               style={{ fontFamily: "'Space Grotesk', sans-serif" }}
@@ -179,6 +339,17 @@ const PedraflexCalculator = () => {
               Calculadora de Placas
             </p>
           </div>
+          {hasData && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleExportPDF}
+              className="gap-1.5"
+            >
+              <Download className="w-4 h-4" />
+              PDF
+            </Button>
+          )}
         </div>
       </header>
 
@@ -215,53 +386,43 @@ const PedraflexCalculator = () => {
           </CardContent>
         </Card>
 
-        {/* Layout mode */}
+        {/* Layout modes - multi select */}
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
-              Modo de Colocación
+              Modos de Colocación
             </CardTitle>
+            <Button size="sm" variant="ghost" onClick={selectAll} className="text-xs h-7">
+              {selectedModes.length === LAYOUT_OPTIONS.length ? "Deseleccionar" : "Seleccionar todos"}
+            </Button>
           </CardHeader>
           <CardContent>
-            <RadioGroup
-              value={layoutMode}
-              onValueChange={(v) => setLayoutMode(v as LayoutMode)}
-              className="grid grid-cols-2 gap-3"
-            >
-              <Label
-                htmlFor="mode-optimized"
-                className={`flex items-center gap-2 border rounded-lg px-3 py-3 cursor-pointer transition-colors ${
-                  layoutMode === "optimized"
-                    ? "border-primary bg-accent"
-                    : "border-border hover:border-primary/40"
-                }`}
-              >
-                <RadioGroupItem value="optimized" id="mode-optimized" />
-                <div>
-                  <span className="text-sm font-medium">Optimizado</span>
-                  <p className="text-xs text-muted-foreground">
-                    Menos desperdicio
-                  </p>
-                </div>
-              </Label>
-              <Label
-                htmlFor="mode-aesthetic"
-                className={`flex items-center gap-2 border rounded-lg px-3 py-3 cursor-pointer transition-colors ${
-                  layoutMode === "aesthetic"
-                    ? "border-primary bg-accent"
-                    : "border-border hover:border-primary/40"
-                }`}
-              >
-                <RadioGroupItem value="aesthetic" id="mode-aesthetic" />
-                <div>
-                  <span className="text-sm font-medium">Estético</span>
-                  <p className="text-xs text-muted-foreground">
-                    Trabado tipo ladrillo
-                  </p>
-                </div>
-              </Label>
-            </RadioGroup>
+            <div className="grid grid-cols-2 gap-3">
+              {LAYOUT_OPTIONS.map((opt) => {
+                const checked = selectedModes.includes(opt.value);
+                return (
+                  <label
+                    key={opt.value}
+                    className={`flex items-start gap-2.5 border rounded-lg px-3 py-3 cursor-pointer transition-colors ${
+                      checked
+                        ? "border-primary bg-accent"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={() => toggleMode(opt.value)}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <span className="text-sm font-medium">{opt.label}</span>
+                      <p className="text-xs text-muted-foreground">{opt.desc}</p>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
 
@@ -365,25 +526,40 @@ const PedraflexCalculator = () => {
           </Card>
         )}
 
-        {/* Wall schemes */}
+        {/* Wall schemes per mode */}
         {wallData
           .filter((w) => w.area > 0)
           .map((w) => (
             <Card key={w.id}>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">
-                  Esquema — {w.name} ({w.anchoN}m × {w.altoN}m)
+                  {w.name} ({w.anchoN}m × {w.altoN}m)
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <WallScheme
-                  wallW={w.anchoN}
-                  wallH={w.altoN}
-                  plates={w.layout}
-                />
+              <CardContent className="space-y-4">
+                {w.layouts.map((layout) => (
+                  <div key={layout.mode}>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">
+                      {getModeLabel(layout.mode)}
+                    </p>
+                    <WallScheme
+                      wallW={w.anchoN}
+                      wallH={w.altoN}
+                      plates={layout.plates}
+                    />
+                  </div>
+                ))}
               </CardContent>
             </Card>
           ))}
+
+        {/* PDF download button at bottom too */}
+        {hasData && (
+          <Button onClick={handleExportPDF} className="w-full gap-2">
+            <Download className="w-4 h-4" />
+            Descargar PDF
+          </Button>
+        )}
       </main>
 
       <footer className="text-center py-6 text-xs text-muted-foreground">
@@ -419,9 +595,8 @@ function WallScheme({
     <svg
       viewBox={`0 0 ${svgW} ${svgH}`}
       className="w-full border rounded-lg bg-card"
-      style={{ maxHeight: 320 }}
+      style={{ maxHeight: 280 }}
     >
-      {/* wall outline */}
       <rect
         x={padding}
         y={padding}
