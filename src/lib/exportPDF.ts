@@ -1,15 +1,15 @@
-import { DeckResult, CoverPerimetral } from "@/lib/deckCalculations";
+import { DeckResult, CoverPerimetral, LShapeConfig } from "@/lib/deckCalculations";
 import jsPDF from "jspdf";
 
 export function exportPDF(
-  input: { ancho: number; largo: number; medidaTabla: string; sentido: string; cover?: CoverPerimetral },
+  input: { ancho: number; largo: number; medidaTabla: string; sentido: string; cover?: CoverPerimetral; forma?: string; lShape?: LShapeConfig },
   result: DeckResult
 ) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const w = doc.internal.pageSize.getWidth();
 
   // Header band
-  doc.setFillColor(0, 133, 119); // #008577
+  doc.setFillColor(0, 133, 119);
   doc.rect(0, 0, w, 32, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(20);
@@ -32,11 +32,16 @@ export function exportPDF(
   y += 8;
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text(`Área: ${input.ancho} m × ${input.largo} m`, 14, y);
+
+  if (input.forma === "L" && input.lShape) {
+    doc.text(`Forma: En L — ${input.lShape.anchoTotal}×${input.lShape.largoTotal} m (brazo ${input.lShape.anchoBrazo}×${input.lShape.largoBrazo} m)`, 14, y);
+  } else {
+    doc.text(`Área: ${input.ancho} m × ${input.largo} m`, 14, y);
+  }
   y += 6;
-  doc.text(`Medida de tabla: ${input.medidaTabla} m`, 14, y);
+  doc.text(`Tabla: ${input.medidaTabla} m | Sentido: ${input.sentido} | Estilo: ${result.estiloColocacion === "panos" ? "Por paños" : "Trabado"}`, 14, y);
   y += 6;
-  doc.text(`Sentido de instalación: ${input.sentido}`, 14, y);
+  doc.text(`${result.tipoAluminio} — Sep. tubos: ${result.separacionTubos} cm — Sep. pilotines: ${result.separacionPilotines} cm`, 14, y);
   y += 12;
 
   // Materials table
@@ -79,7 +84,7 @@ export function exportPDF(
     y += 7;
   });
 
-  // Floor plan diagram
+  // Floor plan
   y += 12;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
@@ -95,59 +100,102 @@ export function exportPDF(
   const ox = 14 + (maxDiagramW - dw) / 2;
   const oy = y;
 
-  // Area rect
-  doc.setFillColor(230, 245, 243);
-  doc.setDrawColor(0, 133, 119);
-  doc.setLineWidth(0.5);
-  doc.rect(ox, oy, dw, dh, "FD");
+  // Area shape
+  if (input.forma === "L" && input.lShape) {
+    const ls = input.lShape;
+    const ab = ls.anchoBrazo * scale;
+    const lb = ls.largoBrazo * scale;
+
+    // Fill L with two rectangles
+    doc.setFillColor(230, 245, 243);
+    doc.rect(ox, oy, dw, lb, "F");
+    doc.rect(ox, oy + lb, ab, dh - lb, "F");
+
+    // Outline
+    doc.setDrawColor(0, 133, 119);
+    doc.setLineWidth(0.5);
+    const pts = [
+      [ox, oy], [ox + dw, oy], [ox + dw, oy + lb],
+      [ox + ab, oy + lb], [ox + ab, oy + dh], [ox, oy + dh],
+    ];
+    for (let i = 0; i < pts.length; i++) {
+      const next = pts[(i + 1) % pts.length];
+      doc.line(pts[i][0], pts[i][1], next[0], next[1]);
+    }
+  } else {
+    doc.setFillColor(230, 245, 243);
+    doc.setDrawColor(0, 133, 119);
+    doc.setLineWidth(0.5);
+    doc.rect(ox, oy, dw, dh, "FD");
+  }
 
   // Tubes
-  doc.setDrawColor(100, 100, 100);
-  doc.setLineWidth(0.3);
-  doc.setLineDashPattern([2, 1.5], 0);
-  result.tubePositions.forEach((pos) => {
-    if (result.tubeDirection === "vertical") {
-      const x = ox + pos * scale;
-      doc.line(x, oy, x, oy + dh);
+  result.tubePositions.forEach((tube) => {
+    if (tube.isDouble) {
+      doc.setDrawColor(40, 60, 80);
+      doc.setLineWidth(0.5);
+      doc.setLineDashPattern([], 0);
     } else {
-      const yy = oy + pos * scale;
-      doc.line(ox, yy, ox + dw, yy);
+      doc.setDrawColor(100, 100, 100);
+      doc.setLineWidth(0.3);
+      doc.setLineDashPattern([2, 1.5], 0);
+    }
+
+    if (result.tubeDirection === "vertical") {
+      const x = ox + tube.position * scale;
+      let tubeH = dh;
+      if (input.forma === "L" && input.lShape && tube.position > input.lShape.anchoBrazo + 0.001) {
+        tubeH = input.lShape.largoBrazo * scale;
+      }
+      doc.line(x, oy, x, oy + tubeH);
+    } else {
+      const yy = oy + tube.position * scale;
+      let tubeW = dw;
+      if (input.forma === "L" && input.lShape && tube.position > input.lShape.largoBrazo + 0.001) {
+        tubeW = input.lShape.anchoBrazo * scale;
+      }
+      doc.line(ox, yy, ox + tubeW, yy);
     }
   });
   doc.setLineDashPattern([], 0);
 
   // Pilotines
   result.pilotinPositions.forEach((pos) => {
-    const cx = ox + pos.x * scale;
-    const cy = oy + pos.y * scale;
     doc.setFillColor(0, 133, 119);
-    doc.circle(cx, cy, 0.8, "F");
+    doc.circle(ox + pos.x * scale, oy + pos.y * scale, 0.8, "F");
   });
 
-  // Cover perimetral — líneas naranjas
+  // Cover
   if (input.cover) {
     doc.setDrawColor(255, 120, 20);
     doc.setLineWidth(1.2);
     const co = 0.6;
-    if (input.cover.ancho1) doc.line(ox - co, oy, ox + dw + co, oy);
-    if (input.cover.ancho2) doc.line(ox - co, oy + dh, ox + dw + co, oy + dh);
-    if (input.cover.largo1) doc.line(ox, oy - co, ox, oy + dh + co);
-    if (input.cover.largo2) doc.line(ox + dw, oy - co, ox + dw, oy + dh + co);
+    if (input.forma === "L" && input.lShape) {
+      const ls = input.lShape;
+      if (input.cover.ancho1) doc.line(ox - co, oy, ox + dw + co, oy);
+      if (input.cover.ancho2) doc.line(ox - co, oy + dh, ox + ls.anchoBrazo * scale + co, oy + dh);
+      if (input.cover.largo1) doc.line(ox, oy - co, ox, oy + dh + co);
+      if (input.cover.largo2) doc.line(ox + dw, oy - co, ox + dw, oy + ls.largoBrazo * scale + co);
+    } else {
+      if (input.cover.ancho1) doc.line(ox - co, oy, ox + dw + co, oy);
+      if (input.cover.ancho2) doc.line(ox - co, oy + dh, ox + dw + co, oy + dh);
+      if (input.cover.largo1) doc.line(ox, oy - co, ox, oy + dh + co);
+      if (input.cover.largo2) doc.line(ox + dw, oy - co, ox + dw, oy + dh + co);
+    }
   }
 
-  // Dimension labels
+  // Labels
   doc.setFontSize(8);
   doc.setTextColor(60, 60, 60);
   doc.setFont("helvetica", "normal");
   doc.text(`${input.ancho} m`, ox + dw / 2, oy - 2, { align: "center" });
-  // Vertical label
   doc.text(`${input.largo} m`, ox - 4, oy + dh / 2, { align: "center", angle: 90 });
 
   // Legend
   y = oy + dh + 8;
   doc.setFontSize(7);
   doc.setTextColor(100, 100, 100);
-  doc.text("--- Tubos de aluminio    ● Pilotines", ox, y);
+  doc.text("--- Tubos    ── Doble estructura    ● Pilotines", ox, y);
 
   // Footer
   y += 10;

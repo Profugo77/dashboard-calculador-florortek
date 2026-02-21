@@ -6,13 +6,30 @@ export interface CoverPerimetral {
 }
 
 export type AlturaDisponible = "5a7" | "mas7";
+export type FormaArea = "rectangular" | "L";
+export type EstiloColocacion = "panos" | "trabado";
+
+export interface LShapeConfig {
+  anchoTotal: number;
+  largoTotal: number;
+  anchoBrazo: number;
+  largoBrazo: number;
+}
+
+export interface TubePosition {
+  position: number;
+  isDouble: boolean;
+}
 
 export interface DeckInput {
+  forma: FormaArea;
   ancho: number;
   largo: number;
+  lShape?: LShapeConfig;
   medidaTabla: "2.2" | "2.9";
   sentido: "horizontal" | "vertical";
   altura: AlturaDisponible;
+  estiloColocacion: EstiloColocacion;
   coverPerimetral?: CoverPerimetral;
 }
 
@@ -25,99 +42,214 @@ export interface DeckResult {
   clips: number;
   tornillos: number;
   mlCoverPerimetral: number;
-  // For SVG drawing
-  tubePositions: number[];
+  tubePositions: TubePosition[];
   tubeLength: number;
   pilotinPositions: { x: number; y: number }[];
   tubeDirection: "horizontal" | "vertical";
-  // Info for display
-  separacionTubos: number; // in cm
-  separacionPilotines: number; // in cm
+  separacionTubos: number;
+  separacionPilotines: number;
   tipoAluminio: string;
+  estiloColocacion: EstiloColocacion;
+  boardLength: number;
+  forma: FormaArea;
+  lShape?: LShapeConfig;
+}
+
+/**
+ * Calculate tube positions with double structure at board joints.
+ * Boards joints occur at multiples of boardLength (paños) or boardLength/2 (trabado).
+ * At each joint, two tubes are placed ~3cm apart (double structure).
+ * Between joints, tubes are distributed proportionally with max spacing.
+ */
+function calculateTubePositionsWithJoints(
+  spacingDimension: number,
+  boardLength: number,
+  estilo: EstiloColocacion,
+  maxSpacing: number
+): { positions: TubePosition[]; typicalSpacing: number } {
+  const step = estilo === "trabado" ? boardLength / 2 : boardLength;
+  const joints: number[] = [];
+  for (let pos = step; pos < spacingDimension - 0.05; pos += step) {
+    joints.push(pos);
+  }
+
+  const boundaries = [0, ...joints, spacingDimension];
+  const positions: TubePosition[] = [];
+  const DOUBLE_OFFSET = 0.015; // 1.5cm each side = 3cm apart
+
+  // Add boundary tubes (edges = single, joints = double)
+  for (const pos of boundaries) {
+    if (joints.includes(pos)) {
+      positions.push({ position: pos - DOUBLE_OFFSET, isDouble: true });
+      positions.push({ position: pos + DOUBLE_OFFSET, isDouble: true });
+    } else {
+      positions.push({ position: pos, isDouble: false });
+    }
+  }
+
+  // Add interior tubes within each segment (max spacing)
+  let typicalSpacing = maxSpacing;
+  for (let b = 0; b < boundaries.length - 1; b++) {
+    const segStart = boundaries[b];
+    const segEnd = boundaries[b + 1];
+    const segLen = segEnd - segStart;
+
+    if (segLen <= maxSpacing) {
+      if (b === 0) typicalSpacing = segLen;
+      continue;
+    }
+
+    const numSpaces = Math.ceil(segLen / maxSpacing);
+    const spacing = segLen / numSpaces;
+    if (b === 0) typicalSpacing = spacing;
+
+    for (let i = 1; i < numSpaces; i++) {
+      positions.push({ position: segStart + i * spacing, isDouble: false });
+    }
+  }
+
+  // Fallback: if no joints, compute typical spacing from full dimension
+  if (joints.length === 0) {
+    const numSpaces = Math.ceil(spacingDimension / maxSpacing);
+    typicalSpacing = spacingDimension / numSpaces;
+  }
+
+  positions.sort((a, b) => a.position - b.position);
+  return { positions, typicalSpacing };
+}
+
+/**
+ * Get the actual length of a tube at a given position.
+ * For rectangular shapes, all tubes are the same length.
+ * For L-shapes, tubes beyond the inner corner are shorter.
+ */
+function getTubeLengthAtPosition(
+  position: number,
+  forma: FormaArea,
+  tubeDirection: "horizontal" | "vertical",
+  ancho: number,
+  largo: number,
+  lShape?: LShapeConfig
+): number {
+  if (forma === "rectangular" || !lShape) {
+    return tubeDirection === "vertical" ? largo : ancho;
+  }
+
+  if (tubeDirection === "vertical") {
+    return position <= lShape.anchoBrazo + 0.001 ? lShape.largoTotal : lShape.largoBrazo;
+  } else {
+    return position <= lShape.largoBrazo + 0.001 ? lShape.anchoTotal : lShape.anchoBrazo;
+  }
 }
 
 export function calculateDeck(input: DeckInput): DeckResult {
-  const { ancho, largo } = input;
-  
+  const isL = input.forma === "L" && input.lShape;
+
+  const ancho = isL ? input.lShape!.anchoTotal : input.ancho;
+  const largo = isL ? input.lShape!.largoTotal : input.largo;
+
   // Surface
-  const superficieReal = ancho * largo;
+  let superficieReal: number;
+  if (isL) {
+    const ls = input.lShape!;
+    superficieReal = ls.anchoTotal * ls.largoBrazo + ls.anchoBrazo * (ls.largoTotal - ls.largoBrazo);
+  } else {
+    superficieReal = ancho * largo;
+  }
   const superficieConDesperdicio = superficieReal * 1.10;
 
-  // Tube direction is PERPENDICULAR to board direction
+  // Tube direction perpendicular to boards
   const tubeDirection = input.sentido === "horizontal" ? "vertical" : "horizontal";
-
-  // Dimension perpendicular to tubes (spacing axis) and parallel (tube length)
   const spacingDimension = tubeDirection === "vertical" ? ancho : largo;
-  const tubeLengthDimension = tubeDirection === "vertical" ? largo : ancho;
+  const boardLength = parseFloat(input.medidaTabla);
 
-  // Tubes: max 37cm spacing, distributed proportionally
-  // Must start and end with a tube
+  // Tube positions with double structure at joints
   const maxTubeSpacing = 0.37;
-  const numTubeSpaces = Math.ceil(spacingDimension / maxTubeSpacing);
-  const actualTubeSpacing = spacingDimension / numTubeSpaces;
-  const cantidadTubos = numTubeSpaces + 1;
-  
-  const tubePositions: number[] = [];
-  for (let i = 0; i < cantidadTubos; i++) {
-    tubePositions.push(i * actualTubeSpacing);
+  const { positions: tubePositions, typicalSpacing } = calculateTubePositionsWithJoints(
+    spacingDimension, boardLength, input.estiloColocacion, maxTubeSpacing
+  );
+
+  const cantidadTubos = tubePositions.length;
+
+  // ML: sum of individual tube lengths + perimeter frame
+  let mlTubos = 0;
+  for (const tube of tubePositions) {
+    mlTubos += getTubeLengthAtPosition(tube.position, input.forma, tubeDirection, ancho, largo, input.lShape);
   }
-
-  // ML = internal tubes + perimeter frame
-  const mlTubosInternos = cantidadTubos * tubeLengthDimension;
+  // Perimeter = 2*(ancho+largo) for both rectangular and L-shape
   const perimetro = 2 * (ancho + largo);
-  const metrosLinealesAluminio = Math.ceil((mlTubosInternos + perimetro) * 100) / 100;
+  const metrosLinealesAluminio = Math.ceil((mlTubos + perimetro) * 100) / 100;
 
-  // Pilotines spacing depends on height
-  // 5-7cm: every 50cm max | >7cm: every 75cm max (40x40 tubes)
-  // Must start and end with a pilotin, distributed proportionally
+  // Pilotines: distributed along each tube's actual length
   const maxPilotinSpacing = input.altura === "mas7" ? 0.75 : 0.50;
-  const numPilotinSpaces = Math.ceil(tubeLengthDimension / maxPilotinSpacing);
-  const actualPilotinSpacing = tubeLengthDimension / numPilotinSpaces;
-  const pilotinesPorTubo = numPilotinSpaces + 1;
-  const pilotines = cantidadTubos * pilotinesPorTubo;
-
-  // Pilotin positions for SVG
   const pilotinPositions: { x: number; y: number }[] = [];
-  for (let i = 0; i < cantidadTubos; i++) {
-    for (let j = 0; j < pilotinesPorTubo; j++) {
+  let totalPilotines = 0;
+
+  for (const tube of tubePositions) {
+    const tubeLen = getTubeLengthAtPosition(tube.position, input.forma, tubeDirection, ancho, largo, input.lShape);
+    const numPilSpaces = Math.ceil(tubeLen / maxPilotinSpacing);
+    const pilSpacing = tubeLen / numPilSpaces;
+
+    for (let j = 0; j <= numPilSpaces; j++) {
       if (tubeDirection === "vertical") {
-        pilotinPositions.push({ x: i * actualTubeSpacing, y: j * actualPilotinSpacing });
+        pilotinPositions.push({ x: tube.position, y: j * pilSpacing });
       } else {
-        pilotinPositions.push({ x: j * actualPilotinSpacing, y: i * actualTubeSpacing });
+        pilotinPositions.push({ x: j * pilSpacing, y: tube.position });
       }
     }
+    totalPilotines += numPilSpaces + 1;
   }
 
   // Clips & screws
   const clips = Math.ceil(superficieReal * 18);
   const tornillos = clips;
 
-  // Cover perimetral (ml por lado seleccionado)
+  // Cover perimetral
   const cover = input.coverPerimetral;
-  const mlCoverPerimetral = cover
-    ? (cover.ancho1 ? ancho : 0) +
-      (cover.ancho2 ? ancho : 0) +
-      (cover.largo1 ? largo : 0) +
-      (cover.largo2 ? largo : 0)
-    : 0;
+  let mlCoverPerimetral = 0;
+  if (cover) {
+    if (isL) {
+      const ls = input.lShape!;
+      mlCoverPerimetral =
+        (cover.ancho1 ? ls.anchoTotal : 0) +
+        (cover.ancho2 ? ls.anchoBrazo : 0) +
+        (cover.largo1 ? ls.largoTotal : 0) +
+        (cover.largo2 ? ls.largoBrazo : 0);
+    } else {
+      mlCoverPerimetral =
+        (cover.ancho1 ? ancho : 0) +
+        (cover.ancho2 ? ancho : 0) +
+        (cover.largo1 ? largo : 0) +
+        (cover.largo2 ? largo : 0);
+    }
+  }
 
   const tipoAluminio = input.altura === "mas7" ? "Aluminio 40×40" : "Aluminio 20×40";
+
+  // Typical pilotin spacing for display
+  const refTubeLen = tubeDirection === "vertical" ? largo : ancho;
+  const numPilRef = Math.ceil(refTubeLen / maxPilotinSpacing);
+  const typicalPilSpacing = refTubeLen / numPilRef;
 
   return {
     superficieReal,
     superficieConDesperdicio: Math.ceil(superficieConDesperdicio * 100) / 100,
     metrosLinealesAluminio,
     cantidadTubos,
-    pilotines,
+    pilotines: totalPilotines,
     clips,
     tornillos,
     mlCoverPerimetral: Math.ceil(mlCoverPerimetral * 100) / 100,
     tubePositions,
-    tubeLength: tubeLengthDimension,
+    tubeLength: tubeDirection === "vertical" ? largo : ancho,
     pilotinPositions,
     tubeDirection,
-    separacionTubos: Math.round(actualTubeSpacing * 100 * 100) / 100,
-    separacionPilotines: Math.round(actualPilotinSpacing * 100 * 100) / 100,
+    separacionTubos: Math.round(typicalSpacing * 100 * 100) / 100,
+    separacionPilotines: Math.round(typicalPilSpacing * 100 * 100) / 100,
     tipoAluminio,
+    estiloColocacion: input.estiloColocacion,
+    boardLength,
+    forma: input.forma,
+    lShape: input.lShape,
   };
 }
