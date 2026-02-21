@@ -546,16 +546,10 @@ const RevestimientosCalculator = () => {
                 </div>
               </div>
 
-              <div className="flex gap-2 mt-4">
-                <Button className="flex-1 gap-2" onClick={handleWhatsApp}>
-                  <MessageCircle className="w-4 h-4" />
-                  Consultar Asesor
-                </Button>
-                <Button variant="outline" className="gap-1.5" onClick={handleExportPDF}>
-                  <Download className="w-4 h-4" />
-                  PDF
-                </Button>
-              </div>
+              <Button className="w-full gap-2 mt-4" onClick={handleExportPDF}>
+                <Download className="w-4 h-4" />
+                Descargar PDF con Esquema
+              </Button>
             </CardContent>
           </Card>
         )}
