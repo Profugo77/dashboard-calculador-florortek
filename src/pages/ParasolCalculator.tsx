@@ -9,7 +9,7 @@ import { ArrowLeft, Calculator, Download, RotateCw, Info } from "lucide-react";
 import jsPDF from "jspdf";
 
 // ─── Types ───────────────────────────────────────────────────────
-type MountType = "piso-techo" | "lateral" | "giratorio";
+type MountType = "piso-techo" | "giratorio";
 
 interface BeamSize {
   label: string;
@@ -281,7 +281,7 @@ function exportParasolPDF(
   doc.setFontSize(9);
   doc.text(today, w - 14, 16, { align: "right" });
 
-  const mountLabel = mount === "piso-techo" ? "Piso y Techo (fija)" : mount === "lateral" ? "Lateral (fija)" : "Giratorio (pivotes)";
+  const mountLabel = mount === "piso-techo" ? "Piso y Techo (fija)" : "Giratorio (pivotes)";
 
   // Config
   let y = 44;
@@ -357,7 +357,7 @@ function exportParasolPDF(
 
   const pitchM = (beam.w + gapMm) / 1000;
   const beamWm = beam.w / 1000;
-  const isVertical = mount !== "lateral";
+  const isVertical = true; // both modes are vertical now
 
   if (isVertical) {
     doc.setDrawColor(80, 80, 80);
@@ -517,17 +517,12 @@ const ParasolCalculator = () => {
                 setMount(v as MountType);
                 setGapStr("");
               }}
-              className="grid grid-cols-1 sm:grid-cols-3 gap-3"
+              className="grid grid-cols-2 gap-3"
             >
               <Label className={`flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-colors ${mount === "piso-techo" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
                 <RadioGroupItem value="piso-techo" />
                 <span className="text-sm font-semibold">Piso y Techo</span>
                 <span className="text-xs text-muted-foreground text-center">Vigas verticales fijas con planchuelas</span>
-              </Label>
-              <Label className={`flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-colors ${mount === "lateral" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
-                <RadioGroupItem value="lateral" />
-                <span className="text-sm font-semibold">Lateral</span>
-                <span className="text-xs text-muted-foreground text-center">Vigas horizontales fijas a los costados</span>
               </Label>
               <Label className={`flex flex-col items-center gap-2 p-4 rounded-lg border cursor-pointer transition-colors ${mount === "giratorio" ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"}`}>
                 <RadioGroupItem value="giratorio" />
