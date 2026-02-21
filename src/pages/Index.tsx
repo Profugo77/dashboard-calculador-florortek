@@ -22,10 +22,10 @@ const cotizadores = [
   {
     id: "escaleras",
     title: "Escaleras",
-    description: "Cotizá escaleras rectas, en L y caracol",
+    description: "Pulido y laqueado o colocación de piso vinílico",
     icon: ArrowUpRight,
     route: "/escaleras",
-    active: false,
+    active: true,
   },
   {
     id: "pergolas",
