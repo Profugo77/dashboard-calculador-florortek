@@ -41,7 +41,7 @@ const cotizadores = [
     description: "Diseñá parasoles con lamas de aluminio o WPC",
     icon: Umbrella,
     route: "/parasoles",
-    active: false,
+    active: true,
   },
   {
     id: "revestimientos",
