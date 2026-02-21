@@ -36,20 +36,12 @@ const cotizadores = [
     active: false,
   },
   {
-    id: "parasoles",
-    title: "Parasoles",
-    description: "Diseñá parasoles con lamas de aluminio o WPC",
-    icon: Umbrella,
-    route: "/parasoles",
-    active: true,
-  },
-  {
     id: "revestimientos",
     title: "Revestimientos",
     description: "Cotizá revestimientos de pared en WPC o madera",
     icon: Wallpaper,
     route: "/revestimientos",
-    active: false,
+    active: true,
   },
   {
     id: "pisos-vinilicos",
