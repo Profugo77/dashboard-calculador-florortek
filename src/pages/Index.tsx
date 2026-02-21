@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { calculateDeck, DeckInput, DeckResult, CoverPerimetral } from "@/lib/deckCalculations";
+import { calculateDeck, DeckInput, DeckResult, CoverPerimetral, AlturaDisponible } from "@/lib/deckCalculations";
 import { exportPDF } from "@/lib/exportPDF";
 import FloorPlanSVG from "@/components/FloorPlanSVG";
 import { Calculator, Download, Ruler, Layers } from "lucide-react";
@@ -15,6 +15,7 @@ const Index = () => {
   const [largo, setLargo] = useState("");
   const [medidaTabla, setMedidaTabla] = useState<"2.2" | "2.9">("2.2");
   const [sentido, setSentido] = useState<"ancho" | "largo">("ancho");
+  const [altura, setAltura] = useState<AlturaDisponible>("5a7");
   const [cover, setCover] = useState<CoverPerimetral>({ ancho1: false, ancho2: false, largo1: false, largo2: false });
   const [result, setResult] = useState<DeckResult | null>(null);
 
@@ -27,7 +28,7 @@ const Index = () => {
     const l = parseFloat(largo);
     if (!a || !l || a <= 0 || l <= 0) return;
     const mappedSentido = sentido === "ancho" ? "horizontal" : "vertical";
-    const input: DeckInput = { ancho: a, largo: l, medidaTabla, sentido: mappedSentido, coverPerimetral: cover };
+    const input: DeckInput = { ancho: a, largo: l, medidaTabla, sentido: mappedSentido, altura, coverPerimetral: cover };
     setResult(calculateDeck(input));
   };
 
@@ -118,24 +119,27 @@ const Index = () => {
               <Label>Sentido de colocación de tablas</Label>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={sentido === "ancho"}
-                    onChange={() => setSentido("ancho")}
-                    className="w-4 h-4 accent-primary rounded"
-                  />
+                  <input type="checkbox" checked={sentido === "ancho"} onChange={() => setSentido("ancho")} className="w-4 h-4 accent-primary rounded" />
                   <span className="text-sm">A lo ancho</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={sentido === "largo"}
-                    onChange={() => setSentido("largo")}
-                    className="w-4 h-4 accent-primary rounded"
-                  />
+                  <input type="checkbox" checked={sentido === "largo"} onChange={() => setSentido("largo")} className="w-4 h-4 accent-primary rounded" />
                   <span className="text-sm">A lo largo</span>
                 </label>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Altura disponible</Label>
+              <RadioGroup value={altura} onValueChange={(v) => setAltura(v as AlturaDisponible)} className="flex gap-4">
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="5a7" id="h5a7" />
+                  <Label htmlFor="h5a7" className="cursor-pointer">5 a 7 cm (tubo 2cm)</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="mas7" id="hmas7" />
+                  <Label htmlFor="hmas7" className="cursor-pointer">Más de 7 cm (tubo 40×40)</Label>
+                </div>
+              </RadioGroup>
             </div>
           </CardContent>
         </Card>
