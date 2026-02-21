@@ -183,7 +183,15 @@ export function calculateDeck(input: DeckInput): DeckResult {
   const pilotinPositions: { x: number; y: number }[] = [];
   let totalPilotines = 0;
 
+  const processedDoubleGroups = new Set<number>();
   for (const tube of tubePositions) {
+    // For double tubes, only process pilotines once per pair
+    if (tube.isDouble) {
+      const groupKey = Math.round(tube.position * 100);
+      if (processedDoubleGroups.has(groupKey)) continue;
+      processedDoubleGroups.add(groupKey);
+    }
+
     const tubeLen = getTubeLengthAtPosition(tube.position, input.forma, tubeDirection, ancho, largo, input.lShape);
     const numPilSpaces = Math.ceil(tubeLen / maxPilotinSpacing);
     const pilSpacing = tubeLen / numPilSpaces;
