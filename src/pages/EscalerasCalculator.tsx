@@ -30,8 +30,8 @@ const EscalerasCalculator = () => {
     const manoDeObraM2 = numEscalones * m2PorEscalon;
 
     if (servicio === "pulido") {
-      const lacaML = numEscalones * 0.5;
-      return { manoDeObraM2, insumo: lacaML, insumoLabel: "Laca", insumoUnit: "ml" };
+      const lacaM2 = numEscalones * 0.5;
+      return { manoDeObraM2, insumo: lacaM2, insumoLabel: "Laca", insumoUnit: "m²" };
     } else {
       const perfilML = numEscalones * 1;
       return { manoDeObraM2, insumo: perfilML, insumoLabel: "Perfil Step", insumoUnit: "ml" };
