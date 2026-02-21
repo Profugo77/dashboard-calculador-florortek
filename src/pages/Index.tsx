@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { Layers, ArrowUpRight, Fence, Umbrella, Wallpaper, SquareStack, ArrowRight, Boxes } from "lucide-react";
+import { Layers, ArrowUpRight, Fence, Umbrella, Wallpaper, SquareStack, ArrowRight, Boxes, Droplets } from "lucide-react";
 
 const cotizadores = [
   {
@@ -49,6 +49,14 @@ const cotizadores = [
     description: "Paneles exterior + perfil omega",
     icon: Wallpaper,
     route: "/revestimientos-exterior",
+    active: true,
+  },
+  {
+    id: "laca",
+    title: "Laca Pallmann",
+    description: "Calculá litros y bidones de laca y sellador",
+    icon: Droplets,
+    route: "/laca",
     active: true,
   },
   {

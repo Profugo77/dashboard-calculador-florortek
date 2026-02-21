@@ -9,6 +9,7 @@ import PedraflexCalculator from "./pages/PedraflexCalculator";
 import ParasolCalculator from "./pages/ParasolCalculator";
 import RevestimientosCalculator from "./pages/RevestimientosCalculator";
 import RevestimientosExteriorCalculator from "./pages/RevestimientosExteriorCalculator";
+import LacaCalculator from "./pages/LacaCalculator";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/parasoles" element={<ParasolCalculator />} />
           <Route path="/revestimientos" element={<RevestimientosCalculator />} />
           <Route path="/revestimientos-exterior" element={<RevestimientosExteriorCalculator />} />
+          <Route path="/laca" element={<LacaCalculator />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
