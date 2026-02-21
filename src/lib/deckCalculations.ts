@@ -176,9 +176,7 @@ export function calculateDeck(input: DeckInput): DeckResult {
   for (const tube of tubePositions) {
     mlTubos += getTubeLengthAtPosition(tube.position, input.forma, tubeDirection, ancho, largo, input.lShape);
   }
-  // Perimeter = 2*(ancho+largo) for both rectangular and L-shape
-  const perimetro = 2 * (ancho + largo);
-  const metrosLinealesAluminio = Math.ceil((mlTubos + perimetro) * 100) / 100;
+  const metrosLinealesAluminio = Math.ceil(mlTubos * 100) / 100;
 
   // Pilotines: distributed along each tube's actual length
   const maxPilotinSpacing = input.altura === "mas7" ? 0.75 : 0.50;
