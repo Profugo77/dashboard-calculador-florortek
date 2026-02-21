@@ -62,10 +62,10 @@ const cotizadores = [
   {
     id: "pisos-vinilicos",
     title: "Pisos Vinílicos",
-    description: "Calculá pisos vinílicos SPC y accesorios",
+    description: "Calculá m² de pisos vinílicos SPC con desperdicio",
     icon: SquareStack,
     route: "/pisos-vinilicos",
-    active: false,
+    active: true,
   },
 ];
 
