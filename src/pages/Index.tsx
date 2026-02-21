@@ -37,10 +37,18 @@ const cotizadores = [
   },
   {
     id: "revestimientos",
-    title: "Revestimientos",
-    description: "Cotizá revestimientos de pared en WPC o madera",
+    title: "Revestimientos Interior",
+    description: "Cotizá paneles de revestimiento interior",
     icon: Wallpaper,
     route: "/revestimientos",
+    active: true,
+  },
+  {
+    id: "revestimientos-exterior",
+    title: "Revestimientos Exterior",
+    description: "Paneles exterior + perfil omega",
+    icon: Wallpaper,
+    route: "/revestimientos-exterior",
     active: true,
   },
   {
