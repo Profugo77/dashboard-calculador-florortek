@@ -18,12 +18,18 @@ interface Wall {
 
 type PlateSize = "small" | "large";
 type LayoutMode = "stacked" | "stacked-rotated" | "brick" | "brick-rotated";
+type Approach = "optimized" | "aesthetic";
 
 const LAYOUT_OPTIONS: { value: LayoutMode; label: string; desc: string }[] = [
   { value: "stacked", label: "Apilado vertical", desc: "Placas alineadas una arriba de otra" },
   { value: "stacked-rotated", label: "Apilado horizontal", desc: "Placas rotadas, alineadas" },
   { value: "brick", label: "Trabado vertical", desc: "Desfase ½ placa, orientación vertical" },
   { value: "brick-rotated", label: "Trabado horizontal", desc: "Desfase ½ placa, orientación horizontal" },
+];
+
+const APPROACH_OPTIONS: { value: Approach; label: string; desc: string }[] = [
+  { value: "optimized", label: "Optimizado", desc: "Menos placas, arranque desde esquina" },
+  { value: "aesthetic", label: "Estético", desc: "Centrado simétrico, cortes iguales en bordes" },
 ];
 
 const PLATES = {
@@ -43,7 +49,8 @@ function layoutWall(
   wallW: number,
   wallH: number,
   plate: { w: number; h: number },
-  mode: LayoutMode
+  mode: LayoutMode,
+  approach: Approach
 ): PlacedPlate[] {
   const placed: PlacedPlate[] = [];
   const rotated = mode === "stacked-rotated" || mode === "brick-rotated";
@@ -51,32 +58,38 @@ function layoutWall(
   const pw = rotated ? plate.h : plate.w;
   const ph = rotated ? plate.w : plate.h;
 
-  let y = 0;
+  // Aesthetic: center plates so edge cuts are symmetric
+  const colsNeeded = Math.ceil(wallW / pw);
+  const rowsNeeded = Math.ceil(wallH / ph);
+  const totalPlateW = colsNeeded * pw;
+  const totalPlateH = rowsNeeded * ph;
+  const offsetX = approach === "aesthetic" ? (totalPlateW - wallW) / 2 : 0;
+  const offsetY = approach === "aesthetic" ? (totalPlateH - wallH) / 2 : 0;
+
+  let y = -offsetY;
   let row = 0;
-  while (y < wallH) {
-    const remainH = wallH - y;
-    const effectiveH = Math.min(ph, remainH);
-    const offset = brick && row % 2 === 1 ? pw / 2 : 0;
-    let x = -offset;
+  while (y < wallH - 0.001) {
+    const brickOffset = brick && row % 2 === 1 ? pw / 2 : 0;
+    let x = -offsetX - brickOffset;
 
-    if (x < 0) {
-      const partialW = pw + x;
-      if (partialW > 0.001) {
-        placed.push({ x: 0, y, w: partialW, h: effectiveH, partial: true });
+    while (x < wallW - 0.001) {
+      // Clip to wall bounds
+      const x1 = Math.max(0, x);
+      const y1 = Math.max(0, y);
+      const x2 = Math.min(wallW, x + pw);
+      const y2 = Math.min(wallH, y + ph);
+      const cw = x2 - x1;
+      const ch = y2 - y1;
+
+      if (cw > 0.001 && ch > 0.001) {
+        placed.push({
+          x: x1,
+          y: y1,
+          w: cw,
+          h: ch,
+          partial: cw < pw - 0.001 || ch < ph - 0.001,
+        });
       }
-      x += pw;
-    }
-
-    while (x < wallW) {
-      const remainW = wallW - x;
-      const effectiveW = Math.min(pw, remainW);
-      placed.push({
-        x,
-        y,
-        w: effectiveW,
-        h: effectiveH,
-        partial: effectiveW < pw - 0.001 || effectiveH < ph - 0.001,
-      });
       x += pw;
     }
     y += ph;
@@ -86,12 +99,18 @@ function layoutWall(
   return placed;
 }
 
+interface LayoutVariant {
+  mode: LayoutMode;
+  approach: Approach;
+  plates: PlacedPlate[];
+  plateCount: number;
+}
+
 interface WallCalcData extends Wall {
   anchoN: number;
   altoN: number;
   area: number;
-  platesNeeded: number;
-  layouts: { mode: LayoutMode; plates: PlacedPlate[] }[];
+  layouts: LayoutVariant[];
 }
 
 const PedraflexCalculator = () => {
@@ -101,6 +120,7 @@ const PedraflexCalculator = () => {
   ]);
   const [plateSize, setPlateSize] = useState<PlateSize>("small");
   const [selectedModes, setSelectedModes] = useState<LayoutMode[]>(["stacked"]);
+  const [selectedApproaches, setSelectedApproaches] = useState<Approach[]>(["optimized"]);
   const [nextId, setNextId] = useState(2);
 
   const toggleMode = (mode: LayoutMode) => {
@@ -116,6 +136,16 @@ const PedraflexCalculator = () => {
   const selectAll = () => {
     const allModes: LayoutMode[] = LAYOUT_OPTIONS.map((o) => o.value);
     setSelectedModes((prev) => (prev.length === allModes.length ? [allModes[0]] : allModes));
+  };
+
+  const toggleApproach = (approach: Approach) => {
+    setSelectedApproaches((prev) => {
+      if (prev.includes(approach)) {
+        if (prev.length === 1) return prev;
+        return prev.filter((a) => a !== approach);
+      }
+      return [...prev, approach];
+    });
   };
 
   const addWall = () => {
@@ -144,24 +174,34 @@ const PedraflexCalculator = () => {
     const ancho = parseFloat(w.ancho) || 0;
     const alto = parseFloat(w.alto) || 0;
     const area = ancho * alto;
-    const platesNeeded = area > 0 ? Math.ceil(area / plateArea) : 0;
-    const layouts =
-      ancho > 0 && alto > 0
-        ? selectedModes.map((mode) => ({
-            mode,
-            plates: layoutWall(ancho, alto, plate, mode),
-          }))
-        : [];
-    return { ...w, anchoN: ancho, altoN: alto, area, platesNeeded, layouts };
+    const layouts: LayoutVariant[] = [];
+    if (ancho > 0 && alto > 0) {
+      for (const mode of selectedModes) {
+        for (const approach of selectedApproaches) {
+          const plates = layoutWall(ancho, alto, plate, mode, approach);
+          layouts.push({ mode, approach, plates, plateCount: plates.length });
+        }
+      }
+    }
+    return { ...w, anchoN: ancho, altoN: alto, area, layouts };
   });
 
+  // Use the first layout variant's plate count for summary (optimized if available)
+  const getWallPlates = (w: WallCalcData) => {
+    if (w.layouts.length === 0) return 0;
+    const opt = w.layouts.find((l) => l.approach === "optimized");
+    return opt ? opt.plateCount : w.layouts[0].plateCount;
+  };
+
   const totalArea = wallData.reduce((s, w) => s + w.area, 0);
-  const totalPlates = wallData.reduce((s, w) => s + w.platesNeeded, 0);
+  const totalPlates = wallData.reduce((s, w) => s + getWallPlates(w), 0);
   const totalAdhesive = Math.ceil(totalPlates * plate.adhesivePer);
   const hasData = wallData.some((w) => w.area > 0);
 
   const getModeLabel = (mode: LayoutMode) =>
     LAYOUT_OPTIONS.find((o) => o.value === mode)?.label ?? mode;
+  const getApproachLabel = (approach: Approach) =>
+    APPROACH_OPTIONS.find((o) => o.value === approach)?.label ?? approach;
 
   const handleExportPDF = () => {
     const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -195,6 +235,8 @@ const PedraflexCalculator = () => {
     doc.text(`Placa: ${plate.label}`, 14, y);
     y += 6;
     doc.text(`Modos: ${selectedModes.map(getModeLabel).join(", ")}`, 14, y);
+    y += 6;
+    doc.text(`Criterio: ${selectedApproaches.map(getApproachLabel).join(", ")}`, 14, y);
     y += 10;
 
     // Summary table
@@ -243,7 +285,7 @@ const PedraflexCalculator = () => {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(11);
         doc.setTextColor(40, 40, 40);
-        doc.text(`${w.name} — ${w.anchoN}m × ${w.altoN}m (${w.area.toFixed(2)} m², ${w.platesNeeded} placas)`, 14, y);
+        doc.text(`${w.name} — ${w.anchoN}m × ${w.altoN}m (${w.area.toFixed(2)} m²)`, 14, y);
         y += 8;
 
         // Draw each layout mode
@@ -262,7 +304,7 @@ const PedraflexCalculator = () => {
           doc.setFontSize(9);
           doc.setFont("helvetica", "normal");
           doc.setTextColor(80, 80, 80);
-          doc.text(getModeLabel(layout.mode), 14, y);
+          doc.text(`${getModeLabel(layout.mode)} — ${getApproachLabel(layout.approach)} (${layout.plateCount} placas)`, 14, y);
           y += 4;
 
           const ox = 14 + (maxDiagW - dw) / 2;
@@ -426,7 +468,43 @@ const PedraflexCalculator = () => {
           </CardContent>
         </Card>
 
-        {/* Walls */}
+        {/* Approach selector */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Calculator className="w-4 h-4 text-primary" />
+              Criterio de Colocación
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              {APPROACH_OPTIONS.map((opt) => {
+                const checked = selectedApproaches.includes(opt.value);
+                return (
+                  <label
+                    key={opt.value}
+                    className={`flex items-start gap-2.5 border rounded-lg px-3 py-3 cursor-pointer transition-colors ${
+                      checked
+                        ? "border-primary bg-accent"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={() => toggleApproach(opt.value)}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <span className="text-sm font-medium">{opt.label}</span>
+                      <p className="text-xs text-muted-foreground">{opt.desc}</p>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="text-base">Paredes</CardTitle>
@@ -484,7 +562,7 @@ const PedraflexCalculator = () => {
                 {wallData[i].area > 0 && (
                   <p className="text-xs text-muted-foreground">
                     Superficie: {wallData[i].area.toFixed(2)} m² —{" "}
-                    {wallData[i].platesNeeded} placas
+                    {getWallPlates(wallData[i])} placas
                   </p>
                 )}
               </div>
@@ -538,10 +616,15 @@ const PedraflexCalculator = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 {w.layouts.map((layout) => (
-                  <div key={layout.mode}>
-                    <p className="text-xs font-medium text-muted-foreground mb-2">
-                      {getModeLabel(layout.mode)}
-                    </p>
+                  <div key={`${layout.mode}-${layout.approach}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {getModeLabel(layout.mode)} — {getApproachLabel(layout.approach)}
+                      </p>
+                      <span className="text-xs font-semibold text-primary">
+                        {layout.plateCount} placas
+                      </span>
+                    </div>
                     <WallScheme
                       wallW={w.anchoN}
                       wallH={w.altoN}
