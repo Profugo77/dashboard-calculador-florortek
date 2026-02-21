@@ -44,13 +44,18 @@ const PisosVinilicosCalculator = () => {
       rooms.map((r) => {
         const a = parseFloat(r.ancho) || 0;
         const l = parseFloat(r.largo) || 0;
-        return { ...r, area: a * l, anchoNum: a, largoNum: l };
+        const perimeter = a > 0 && l > 0 ? 2 * (a + l) : 0;
+        return { ...r, area: a * l, anchoNum: a, largoNum: l, perimeter };
       }),
     [rooms]
   );
 
   const baseM2 = mode === "total" ? parseFloat(totalM2) || 0 : roomResults.reduce((s, r) => s + r.area, 0);
   const finalM2 = addWaste ? baseM2 * 1.1 : baseM2;
+  // Zócalos: por ambiente = perímetro exacto, por m² total = estimación (4 × √m²)
+  const zocalosML = mode === "rooms"
+    ? roomResults.reduce((s, r) => s + r.perimeter, 0)
+    : baseM2 > 0 ? 4 * Math.sqrt(baseM2) : 0;
   const hasData = baseM2 > 0;
 
   // ─── PDF ─────────────────────────────────────────────────────
@@ -87,8 +92,9 @@ const PisosVinilicosCalculator = () => {
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.text("Ambiente", 14, y);
-      doc.text("Medida", pw / 2, y, { align: "center" });
-      doc.text("m²", pw - 14, y, { align: "right" });
+      doc.text("Medida", pw * 0.38, y, { align: "center" });
+      doc.text("m²", pw * 0.62, y, { align: "center" });
+      doc.text("Zócalo ml", pw - 14, y, { align: "right" });
       y += 7;
 
       doc.setTextColor(40, 40, 40);
@@ -99,8 +105,9 @@ const PisosVinilicosCalculator = () => {
           doc.rect(12, y - 4, pw - 24, 7, "F");
         }
         doc.text(r.name, 14, y);
-        doc.text(`${r.anchoNum}m × ${r.largoNum}m`, pw / 2, y, { align: "center" });
-        doc.text(r.area.toFixed(2), pw - 14, y, { align: "right" });
+        doc.text(`${r.anchoNum}m × ${r.largoNum}m`, pw * 0.38, y, { align: "center" });
+        doc.text(r.area.toFixed(2), pw * 0.62, y, { align: "center" });
+        doc.text(r.perimeter.toFixed(2), pw - 14, y, { align: "right" });
         y += 7;
       });
       y += 4;
@@ -115,7 +122,8 @@ const PisosVinilicosCalculator = () => {
     doc.text(`Superficie base: ${baseM2.toFixed(2)} m²`, 14, y); y += 6;
     doc.text(`Desperdicio 10%: ${addWaste ? "Sí" : "No"}`, 14, y); y += 6;
     doc.setFont("helvetica", "bold");
-    doc.text(`Total a comprar: ${finalM2.toFixed(2)} m²`, 14, y); y += 12;
+    doc.text(`Total a comprar: ${finalM2.toFixed(2)} m²`, 14, y); y += 6;
+    doc.text(`Zócalos: ${zocalosML.toFixed(2)} ml${mode === "total" ? " (estimado)" : ""}`, 14, y); y += 12;
 
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
@@ -268,7 +276,10 @@ const PisosVinilicosCalculator = () => {
                       <span className="text-muted-foreground">
                         {r.name}: {r.anchoNum}m × {r.largoNum}m
                       </span>
-                      <span className="font-medium">{r.area.toFixed(2)} m²</span>
+                      <div className="text-right">
+                        <span className="font-medium">{r.area.toFixed(2)} m²</span>
+                        <span className="text-muted-foreground ml-3">{r.perimeter.toFixed(2)} ml zóc.</span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -286,7 +297,13 @@ const PisosVinilicosCalculator = () => {
                 )}
                 <div className="text-center pt-2 border-t border-border/50">
                   <p className="text-3xl font-bold text-foreground">{finalM2.toFixed(2)} m²</p>
-                  <p className="text-sm text-muted-foreground">Total a comprar</p>
+                  <p className="text-sm text-muted-foreground">Total piso a comprar</p>
+                </div>
+                <div className="text-center pt-2 border-t border-border/50">
+                  <p className="text-2xl font-bold text-foreground">{zocalosML.toFixed(2)} ml</p>
+                  <p className="text-sm text-muted-foreground">
+                    Zócalos{mode === "total" ? " (estimado)" : ""}
+                  </p>
                 </div>
               </div>
 
