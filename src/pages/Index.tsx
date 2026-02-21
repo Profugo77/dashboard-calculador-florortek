@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { Layers, ArrowUpRight, Fence, Umbrella, Wallpaper, SquareStack, ArrowRight, Boxes, Droplets } from "lucide-react";
+import { Layers, ArrowUpRight, Fence, Umbrella, Wallpaper, SquareStack, ArrowRight, Boxes, Droplets, PanelTop } from "lucide-react";
 
 const cotizadores = [
   {
@@ -65,6 +65,14 @@ const cotizadores = [
     description: "Calculá m² de pisos vinílicos SPC y zócalos",
     icon: SquareStack,
     route: "/pisos-vinilicos",
+    active: true,
+  },
+  {
+    id: "decopanel",
+    title: "Decopanel",
+    description: "Diseñá paredes combinando paneles lisos y varillados",
+    icon: PanelTop,
+    route: "/decopanel",
     active: true,
   },
 ];
