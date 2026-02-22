@@ -1,4 +1,6 @@
 import { useRef, useCallback, useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export interface LShapeDragValues {
   anchoTotal: number;
@@ -14,7 +16,7 @@ interface Props {
 
 type Handle = "anchoTotal" | "largoTotal" | "anchoBrazo" | "largoBrazo";
 
-const SNAP = 0.05; // snap to 5cm
+const SNAP = 0.05;
 const MIN = 0.5;
 
 function snap(v: number) {
@@ -83,81 +85,110 @@ const LShapeDragEditor = ({ value, onChange }: Props) => {
 
   const handlePointerUp = useCallback(() => setDragging(null), []);
 
-  if (!valid && (anchoTotal > 0 || largoTotal > 0)) {
-    return (
-      <p className="text-xs text-center py-4" style={{ color: "hsl(0 60% 50%)" }}>
-        Ancho brazo &lt; Ancho total y Largo brazo &lt; Largo total
-      </p>
-    );
-  }
-
-  if (!valid) return null;
+  const updateField = (key: keyof LShapeDragValues, raw: string) => {
+    const v = parseFloat(raw);
+    if (isNaN(v) || v < MIN) return;
+    const next = { ...value, [key]: Math.round(v * 100) / 100 };
+    // enforce constraints
+    if (key === "anchoTotal" && next.anchoTotal <= next.anchoBrazo) next.anchoBrazo = next.anchoTotal - 0.1;
+    if (key === "largoTotal" && next.largoTotal <= next.largoBrazo) next.largoBrazo = next.largoTotal - 0.1;
+    if (key === "anchoBrazo" && next.anchoBrazo >= next.anchoTotal) next.anchoBrazo = next.anchoTotal - 0.1;
+    if (key === "largoBrazo" && next.largoBrazo >= next.largoTotal) next.largoBrazo = next.largoTotal - 0.1;
+    onChange(next);
+  };
 
   const handleR = 7;
   const handleColor = "hsl(170 100% 26%)";
   const handleActiveColor = "hsl(170 100% 36%)";
 
-  const handles: { id: Handle; cx: number; cy: number }[] = [
-    { id: "anchoTotal", cx: ox + dw, cy: oy + lb / 2 },
-    { id: "largoTotal", cx: ox + ab / 2, cy: oy + dh },
-    { id: "anchoBrazo", cx: ox + ab, cy: oy + (lb + dh) / 2 },
-    { id: "largoBrazo", cx: ox + (ab + dw) / 2, cy: oy + lb },
-  ];
+  const handles: { id: Handle; cx: number; cy: number }[] = valid
+    ? [
+        { id: "anchoTotal", cx: ox + dw, cy: oy + lb / 2 },
+        { id: "largoTotal", cx: ox + ab / 2, cy: oy + dh },
+        { id: "anchoBrazo", cx: ox + ab, cy: oy + (lb + dh) / 2 },
+        { id: "largoBrazo", cx: ox + (ab + dw) / 2, cy: oy + lb },
+      ]
+    : [];
 
   return (
-    <svg
-      ref={svgRef}
-      viewBox={`0 0 ${svgW} ${svgH}`}
-      className="mx-auto max-w-full cursor-default select-none"
-      style={{ maxHeight: 260, touchAction: "none" }}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerUp}
-    >
-      {/* L-shape polygon */}
-      <polygon
-        points={`${ox},${oy} ${ox + dw},${oy} ${ox + dw},${oy + lb} ${ox + ab},${oy + lb} ${ox + ab},${oy + dh} ${ox},${oy + dh}`}
-        fill="hsl(170 60% 92%)"
-        stroke="hsl(170 100% 26%)"
-        strokeWidth={2}
-      />
+    <div className="space-y-3">
+      {/* Input fields */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label className="text-[10px] font-semibold" style={{ color: "hsl(200 10% 35%)" }}>Ancho total (m)</Label>
+          <Input type="number" step="0.05" min={MIN} value={anchoTotal}
+            onChange={(e) => updateField("anchoTotal", e.target.value)}
+            className="text-center text-xs h-8 mt-0.5" />
+        </div>
+        <div>
+          <Label className="text-[10px] font-semibold" style={{ color: "hsl(200 10% 35%)" }}>Largo total (m)</Label>
+          <Input type="number" step="0.05" min={MIN} value={largoTotal}
+            onChange={(e) => updateField("largoTotal", e.target.value)}
+            className="text-center text-xs h-8 mt-0.5" />
+        </div>
+        <div>
+          <Label className="text-[10px] font-semibold" style={{ color: "hsl(25 80% 45%)" }}>Ancho brazo (m)</Label>
+          <Input type="number" step="0.05" min={MIN} value={anchoBrazo}
+            onChange={(e) => updateField("anchoBrazo", e.target.value)}
+            className="text-center text-xs h-8 mt-0.5" />
+        </div>
+        <div>
+          <Label className="text-[10px] font-semibold" style={{ color: "hsl(25 80% 45%)" }}>Largo brazo (m)</Label>
+          <Input type="number" step="0.05" min={MIN} value={largoBrazo}
+            onChange={(e) => updateField("largoBrazo", e.target.value)}
+            className="text-center text-xs h-8 mt-0.5" />
+        </div>
+      </div>
 
-      {/* Dimension labels */}
-      <text x={ox + dw / 2} y={oy - 14} textAnchor="middle" fontSize={11} fontWeight={600} fill="hsl(200 10% 30%)">
-        {anchoTotal.toFixed(2)} m
-      </text>
-      <text x={ox - 16} y={oy + dh / 2} textAnchor="middle" fontSize={11} fontWeight={600} fill="hsl(200 10% 30%)"
-        transform={`rotate(-90, ${ox - 16}, ${oy + dh / 2})`}>
-        {largoTotal.toFixed(2)} m
-      </text>
-      <text x={ox + ab / 2} y={oy + dh + 18} textAnchor="middle" fontSize={10} fontWeight={500} fill="hsl(25 80% 45%)">
-        {anchoBrazo.toFixed(2)} m
-      </text>
-      <text x={ox + dw + 18} y={oy + lb / 2} textAnchor="middle" fontSize={10} fontWeight={500} fill="hsl(25 80% 45%)"
-        transform={`rotate(90, ${ox + dw + 18}, ${oy + lb / 2})`}>
-        {largoBrazo.toFixed(2)} m
-      </text>
+      {/* SVG drag editor */}
+      {valid && (
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${svgW} ${svgH}`}
+          className="mx-auto max-w-full cursor-default select-none"
+          style={{ maxHeight: 240, touchAction: "none" }}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+        >
+          <polygon
+            points={`${ox},${oy} ${ox + dw},${oy} ${ox + dw},${oy + lb} ${ox + ab},${oy + lb} ${ox + ab},${oy + dh} ${ox},${oy + dh}`}
+            fill="hsl(170 60% 92%)"
+            stroke="hsl(170 100% 26%)"
+            strokeWidth={2}
+          />
+          <text x={ox + dw / 2} y={oy - 14} textAnchor="middle" fontSize={11} fontWeight={600} fill="hsl(200 10% 30%)">
+            {anchoTotal.toFixed(2)} m
+          </text>
+          <text x={ox - 16} y={oy + dh / 2} textAnchor="middle" fontSize={11} fontWeight={600} fill="hsl(200 10% 30%)"
+            transform={`rotate(-90, ${ox - 16}, ${oy + dh / 2})`}>
+            {largoTotal.toFixed(2)} m
+          </text>
+          <text x={ox + ab / 2} y={oy + dh + 18} textAnchor="middle" fontSize={10} fontWeight={500} fill="hsl(25 80% 45%)">
+            {anchoBrazo.toFixed(2)} m
+          </text>
+          <text x={ox + dw + 18} y={oy + lb / 2} textAnchor="middle" fontSize={10} fontWeight={500} fill="hsl(25 80% 45%)"
+            transform={`rotate(90, ${ox + dw + 18}, ${oy + lb / 2})`}>
+            {largoBrazo.toFixed(2)} m
+          </text>
+          {handles.map((h) => (
+            <circle key={h.id} cx={h.cx} cy={h.cy} r={handleR}
+              fill={dragging === h.id ? handleActiveColor : handleColor}
+              stroke="white" strokeWidth={2} style={{ cursor: "grab" }}
+              onPointerDown={handlePointerDown(h.id)} />
+          ))}
+          <text x={svgW / 2} y={svgH - 4} textAnchor="middle" fontSize={9} fill="hsl(200 10% 60%)">
+            Arrastrá los puntos para ajustar
+          </text>
+        </svg>
+      )}
 
-      {/* Drag handles */}
-      {handles.map((h) => (
-        <circle
-          key={h.id}
-          cx={h.cx}
-          cy={h.cy}
-          r={handleR}
-          fill={dragging === h.id ? handleActiveColor : handleColor}
-          stroke="white"
-          strokeWidth={2}
-          style={{ cursor: "grab" }}
-          onPointerDown={handlePointerDown(h.id)}
-        />
-      ))}
-
-      {/* Hint */}
-      <text x={svgW / 2} y={svgH - 4} textAnchor="middle" fontSize={9} fill="hsl(200 10% 60%)">
-        Arrastrá los puntos para ajustar
-      </text>
-    </svg>
+      {!valid && (anchoTotal > 0 || largoTotal > 0) && (
+        <p className="text-xs text-center py-2" style={{ color: "hsl(0 60% 50%)" }}>
+          Ancho brazo &lt; Ancho total y Largo brazo &lt; Largo total
+        </p>
+      )}
+    </div>
   );
 };
 
