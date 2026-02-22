@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useCallback } from "react";
+import { useState, useRef, useMemo, useCallback, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Download, Ruler, Package, Grid3X3, Wrench, Plus, Trash2, Upload, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -428,9 +428,21 @@ const DeckAvanzado = () => {
                   <StructureSchema svgRef={structRef} largo={lShape.largoTotal} ancho={lShape.anchoTotal} dir={dir} boardLen={boardLen}
                     result={result} shape="l-shape" lShape={lShape} />
                 )}
-                {shapeMode === "multi-rect" && subRects[0] && (
-                  <StructureSchema svgRef={structRef} largo={subRects[0].largo} ancho={subRects[0].ancho} dir={dir} boardLen={boardLen}
-                    result={{ ...result, ...calculateRect(subRects[0].largo, subRects[0].ancho, dir, boardLen) }} shape="rectangle" />
+                {shapeMode === "multi-rect" && (
+                  <div className="flex flex-col gap-4 w-full items-center">
+                    {subRects.filter(r => r.largo > 0 && r.ancho > 0).map((r, idx) => {
+                      const rResult = calculateRect(r.largo, r.ancho, dir, boardLen);
+                      return (
+                        <Fragment key={r.id}>
+                          <p className="text-[10px] font-semibold" style={{ color: "hsl(200 10% 50%)" }}>Rectángulo {idx + 1}</p>
+                          <StructureSchema
+                            svgRef={idx === 0 ? structRef : undefined}
+                            largo={r.largo} ancho={r.ancho} dir={dir} boardLen={boardLen}
+                            result={rResult} shape="rectangle" />
+                        </Fragment>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
               {/* Legend */}
@@ -463,8 +475,15 @@ const DeckAvanzado = () => {
                   <BoardSchema largo={lShape.largoTotal} ancho={lShape.anchoTotal} dir={dir} boardLen={boardLen}
                     shape="l-shape" lShape={lShape} />
                 )}
-                {shapeMode === "multi-rect" && subRects[0] && (
-                  <BoardSchema largo={subRects[0].largo} ancho={subRects[0].ancho} dir={dir} boardLen={boardLen} shape="rectangle" />
+                {shapeMode === "multi-rect" && (
+                  <div className="flex flex-col gap-4 w-full items-center">
+                    {subRects.filter(r => r.largo > 0 && r.ancho > 0).map((r, idx) => (
+                      <Fragment key={r.id}>
+                        <p className="text-[10px] font-semibold" style={{ color: "hsl(200 10% 50%)" }}>Rectángulo {idx + 1}</p>
+                        <BoardSchema largo={r.largo} ancho={r.ancho} dir={dir} boardLen={boardLen} shape="rectangle" />
+                      </Fragment>
+                    ))}
+                  </div>
                 )}
               </div>
               <div className="flex items-center justify-center gap-4 mt-3 text-[10px]" style={{ color: "hsl(200 10% 45%)" }}>

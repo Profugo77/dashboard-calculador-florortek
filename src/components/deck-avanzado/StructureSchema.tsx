@@ -25,7 +25,9 @@ const StructureSchema = ({ largo, ancho, dir, boardLen, result, shape, lShape, s
   const ox = padding;
   const oy = padding;
 
-  // Outline path
+  const clipId = "struct-clip";
+
+  // Outline path (also used for clipping)
   const outlinePath = useMemo(() => {
     if (shape === "l-shape" && lShape) {
       const ab = lShape.anchoBrazo * scale;
@@ -43,6 +45,7 @@ const StructureSchema = ({ largo, ancho, dir, boardLen, result, shape, lShape, s
       const pos = i * spacingM;
       if (dir === "horizontal") {
         const y = oy + pos * scale;
+        if (y > oy + dh + 0.5) continue; // don't exceed area
         let w = dw;
         if (shape === "l-shape" && lShape && pos > lShape.largoBrazo) {
           w = lShape.anchoBrazo * scale;
@@ -50,6 +53,7 @@ const StructureSchema = ({ largo, ancho, dir, boardLen, result, shape, lShape, s
         lines.push({ x1: ox, y1: y, x2: ox + w, y2: y });
       } else {
         const x = ox + pos * scale;
+        if (x > ox + dw + 0.5) continue; // don't exceed area
         let h = dh;
         if (shape === "l-shape" && lShape && pos > lShape.anchoBrazo) {
           h = lShape.largoBrazo * scale;
@@ -60,21 +64,21 @@ const StructureSchema = ({ largo, ancho, dir, boardLen, result, shape, lShape, s
     return lines;
   }, [result, dir, scale, dw, dh, ox, oy, shape, lShape]);
 
-  // Double beam lines at board joints
+  // Double beam lines at board joints – clipped to area
   const doubleBeamLines = useMemo(() => {
     const lines: { x1: number; y1: number; x2: number; y2: number }[][] = [];
-    const offset = 3 * (scale > 1 ? 1.5 : 3); // visual offset in px
+    const offset = 3 * (scale > 1 ? 1.5 : 3);
     result.boardJoints.forEach((jointPos) => {
       if (dir === "horizontal") {
-        // joints along ancho (X), double beams are vertical
         const x = ox + jointPos * scale;
+        if (x > ox + dw + 0.5) return;
         lines.push([
           { x1: x - offset, y1: oy, x2: x - offset, y2: oy + dh },
           { x1: x + offset, y1: oy, x2: x + offset, y2: oy + dh },
         ]);
       } else {
-        // joints along largo (Y), double beams are horizontal
         const y = oy + jointPos * scale;
+        if (y > oy + dh + 0.5) return;
         lines.push([
           { x1: ox, y1: y - offset, x2: ox + dw, y2: y - offset },
           { x1: ox, y1: y + offset, x2: ox + dw, y2: y + offset },
@@ -88,19 +92,23 @@ const StructureSchema = ({ largo, ancho, dir, boardLen, result, shape, lShape, s
   const pilotines = useMemo(() => {
     const pts: { cx: number; cy: number }[] = [];
     const spacingM = result.sepVigas / 100;
-    const beamLength = dir === "horizontal" ? effAncho : effLargo;
-    const pilPerBeam = Math.max(2, Math.ceil(beamLength / 0.80) + 1);
-    const pilSpacing = beamLength / (pilPerBeam - 1);
 
     for (let i = 0; i < result.cantVigas; i++) {
       const beamPos = i * spacingM;
-      let len = beamLength;
+      let beamLen = dir === "horizontal" ? effAncho : effLargo;
+
       if (shape === "l-shape" && lShape) {
-        if (dir === "horizontal" && beamPos > lShape.largoBrazo) len = lShape.anchoBrazo;
-        if (dir === "vertical" && beamPos > lShape.anchoBrazo) len = lShape.largoBrazo;
+        if (dir === "horizontal" && beamPos > lShape.largoBrazo) beamLen = lShape.anchoBrazo;
+        if (dir === "vertical" && beamPos > lShape.anchoBrazo) beamLen = lShape.largoBrazo;
       }
-      const count = Math.max(2, Math.ceil(len / 0.80) + 1);
-      const sp = len / (count - 1);
+
+      // Skip beams outside the area
+      const beamPx = dir === "horizontal" ? oy + beamPos * scale : ox + beamPos * scale;
+      const limit = dir === "horizontal" ? oy + dh : ox + dw;
+      if (beamPx > limit + 0.5) continue;
+
+      const count = Math.max(2, Math.ceil(beamLen / 0.80) + 1);
+      const sp = beamLen / (count - 1);
       for (let j = 0; j < count; j++) {
         const along = j * sp;
         if (dir === "horizontal") {
@@ -111,7 +119,7 @@ const StructureSchema = ({ largo, ancho, dir, boardLen, result, shape, lShape, s
       }
     }
     return pts;
-  }, [result, dir, scale, ox, oy, effAncho, effLargo, shape, lShape]);
+  }, [result, dir, scale, ox, oy, dw, dh, effAncho, effLargo, shape, lShape]);
 
   return (
     <svg
@@ -121,36 +129,39 @@ const StructureSchema = ({ largo, ancho, dir, boardLen, result, shape, lShape, s
       style={{ maxHeight: 480, background: "hsl(200 10% 98%)" }}
     >
       <defs>
-        <marker id="arr-s" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill="hsl(200 10% 50%)" />
-        </marker>
+        <clipPath id={clipId}>
+          <path d={outlinePath} />
+        </clipPath>
       </defs>
 
       {/* Deck outline */}
       <path d={outlinePath} fill="hsl(200 10% 94%)" stroke="hsl(200 15% 30%)" strokeWidth={2} />
 
-      {/* Pilotines (draw first so beams overlay) */}
-      {pilotines.map((p, i) => (
-        <circle key={`pil-${i}`} cx={p.cx} cy={p.cy} r={4} fill="hsl(220 60% 55%)" stroke="hsl(220 60% 35%)" strokeWidth={1} opacity={0.7} />
-      ))}
+      {/* All internal elements clipped to the deck shape */}
+      <g clipPath={`url(#${clipId})`}>
+        {/* Pilotines */}
+        {pilotines.map((p, i) => (
+          <circle key={`pil-${i}`} cx={p.cx} cy={p.cy} r={4} fill="hsl(220 60% 55%)" stroke="hsl(220 60% 35%)" strokeWidth={1} opacity={0.7} />
+        ))}
 
-      {/* Regular beams */}
-      {beamLines.map((l, i) => (
-        <line key={`beam-${i}`} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-          stroke="hsl(0 75% 50%)" strokeWidth={2} strokeLinecap="round" />
-      ))}
+        {/* Regular beams */}
+        {beamLines.map((l, i) => (
+          <line key={`beam-${i}`} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+            stroke="hsl(0 75% 50%)" strokeWidth={2} strokeLinecap="round" />
+        ))}
 
-      {/* Double beams at joints */}
-      {doubleBeamLines.map((pair, i) => (
-        <g key={`dbl-${i}`}>
-          <line x1={pair[0].x1} y1={pair[0].y1} x2={pair[0].x2} y2={pair[0].y2}
-            stroke="hsl(30 90% 50%)" strokeWidth={2.5} strokeLinecap="round" />
-          <line x1={pair[1].x1} y1={pair[1].y1} x2={pair[1].x2} y2={pair[1].y2}
-            stroke="hsl(30 90% 50%)" strokeWidth={2.5} strokeLinecap="round" />
-        </g>
-      ))}
+        {/* Double beams at joints */}
+        {doubleBeamLines.map((pair, i) => (
+          <g key={`dbl-${i}`}>
+            <line x1={pair[0].x1} y1={pair[0].y1} x2={pair[0].x2} y2={pair[0].y2}
+              stroke="hsl(30 90% 50%)" strokeWidth={2.5} strokeLinecap="round" />
+            <line x1={pair[1].x1} y1={pair[1].y1} x2={pair[1].x2} y2={pair[1].y2}
+              stroke="hsl(30 90% 50%)" strokeWidth={2.5} strokeLinecap="round" />
+          </g>
+        ))}
+      </g>
 
-      {/* Dimension labels */}
+      {/* Dimension labels (outside clip) */}
       <text x={ox + dw / 2} y={oy - 20} textAnchor="middle" fontSize={13} fontWeight={700} fill="hsl(200 15% 25%)">
         {effAncho} m
       </text>
@@ -159,7 +170,19 @@ const StructureSchema = ({ largo, ancho, dir, boardLen, result, shape, lShape, s
         {effLargo} m
       </text>
 
-      {/* Sep annotation */}
+      {/* L-shape sub-dimensions */}
+      {shape === "l-shape" && lShape && (
+        <>
+          <text x={ox + lShape.anchoBrazo * scale / 2} y={oy + dh + 18} textAnchor="middle" fontSize={10} fontWeight={500} fill="hsl(25 80% 45%)">
+            {lShape.anchoBrazo} m
+          </text>
+          <text x={ox + dw + 18} y={oy + lShape.largoBrazo * scale / 2} textAnchor="middle" fontSize={10} fontWeight={500} fill="hsl(25 80% 45%)"
+            transform={`rotate(90, ${ox + dw + 18}, ${oy + lShape.largoBrazo * scale / 2})`}>
+            {lShape.largoBrazo} m
+          </text>
+        </>
+      )}
+
       <text x={ox + dw + 10} y={oy + dh / 2} fontSize={10} fill="hsl(0 60% 45%)" fontWeight={600}
         transform={`rotate(-90, ${ox + dw + 10}, ${oy + dh / 2})`} textAnchor="middle">
         Sep: {result.sepVigas} cm
