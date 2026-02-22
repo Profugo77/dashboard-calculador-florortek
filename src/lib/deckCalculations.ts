@@ -61,6 +61,9 @@ export interface DeckResult {
  * At each joint, two tubes are placed ~3cm apart (double structure).
  * Between joints, tubes are distributed proportionally with max spacing.
  */
+const MIN_TUBE_DISTANCE = 0.15; // 15 cm min distance between any two tubes
+const MAX_BOARD_OVERHANG = 0.06; // 6 cm max board overhang past last tube
+
 function calculateTubePositionsWithJoints(
   spacingDimension: number,
   boardLength: number,
@@ -68,9 +71,25 @@ function calculateTubePositionsWithJoints(
   maxSpacing: number
 ): { positions: TubePosition[]; typicalSpacing: number } {
   const step = estilo === "trabado" ? boardLength / 2 : boardLength;
+
+  // Calculate regular tube positions first
+  const numSpaces = Math.ceil(spacingDimension / maxSpacing);
+  const regularSpacing = spacingDimension / numSpaces;
+  const regularPositions: number[] = [];
+  for (let i = 0; i <= numSpaces; i++) {
+    regularPositions.push(Math.round(i * regularSpacing * 1000) / 1000);
+  }
+
+  // Find board joints, filtering those too close (<15cm) to regular tubes
   const joints: number[] = [];
   for (let pos = step; pos < spacingDimension - 0.05; pos += step) {
-    joints.push(pos);
+    const roundedPos = Math.round(pos * 100) / 100;
+    const tooClose = regularPositions.some(
+      rp => Math.abs(rp - roundedPos) > 0 && Math.abs(rp - roundedPos) < MIN_TUBE_DISTANCE
+    );
+    if (!tooClose) {
+      joints.push(roundedPos);
+    }
   }
 
   const boundaries = [0, ...joints, spacingDimension];
@@ -99,19 +118,19 @@ function calculateTubePositionsWithJoints(
       continue;
     }
 
-    const numSpaces = Math.ceil(segLen / maxSpacing);
-    const spacing = segLen / numSpaces;
+    const numSp = Math.ceil(segLen / maxSpacing);
+    const spacing = segLen / numSp;
     if (b === 0) typicalSpacing = spacing;
 
-    for (let i = 1; i < numSpaces; i++) {
+    for (let i = 1; i < numSp; i++) {
       positions.push({ position: segStart + i * spacing, isDouble: false });
     }
   }
 
   // Fallback: if no joints, compute typical spacing from full dimension
   if (joints.length === 0) {
-    const numSpaces = Math.ceil(spacingDimension / maxSpacing);
-    typicalSpacing = spacingDimension / numSpaces;
+    const nSp = Math.ceil(spacingDimension / maxSpacing);
+    typicalSpacing = spacingDimension / nSp;
   }
 
   positions.sort((a, b) => a.position - b.position);
