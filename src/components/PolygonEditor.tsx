@@ -19,7 +19,7 @@ interface Block {
   alignOffset: number;     // offset along the attachment edge (in meters)
 }
 
-interface ComputedBlock {
+export interface ComputedBlock {
   id: string;
   x: number;
   y: number;
@@ -30,6 +30,7 @@ interface ComputedBlock {
 interface PolygonEditorProps {
   vertices: PolygonVertex[];
   onChange: (vertices: PolygonVertex[]) => void;
+  onBlocksChange?: (blocks: ComputedBlock[]) => void;
 }
 
 function computeBlockPositions(blocks: Block[]): ComputedBlock[] {
@@ -110,7 +111,7 @@ const SIDE_LABELS: Record<string, string> = {
   arriba: "↑ Arriba",
 };
 
-const PolygonEditor = ({ vertices, onChange }: PolygonEditorProps) => {
+const PolygonEditor = ({ vertices, onChange, onBlocksChange }: PolygonEditorProps) => {
   const [blocks, setBlocks] = useState<Block[]>([
     { id: crypto.randomUUID(), ancho: 0, largo: 0, alignOffset: 0 },
   ]);
@@ -123,9 +124,9 @@ const PolygonEditor = ({ vertices, onChange }: PolygonEditorProps) => {
     setBlocks(newBlocks);
     const comp = computeBlockPositions(newBlocks);
     const valid = comp.filter((b) => b.w > 0 && b.h > 0);
+    onBlocksChange?.(valid);
     if (valid.length > 0) {
       const verts = blocksToOutlineVertices(valid);
-      // Close the polygon
       if (verts.length > 0) verts.push({ ...verts[0] });
       onChange(verts);
     } else {
@@ -173,6 +174,7 @@ const PolygonEditor = ({ vertices, onChange }: PolygonEditorProps) => {
     const newBlocks = [{ id: crypto.randomUUID(), ancho: 0, largo: 0, alignOffset: 0 }];
     setBlocks(newBlocks);
     onChange([]);
+    onBlocksChange?.([]);
   };
 
   return (

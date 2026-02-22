@@ -14,7 +14,7 @@ import { exportPDF } from "@/lib/exportPDF";
 import FloorPlanSVG from "@/components/FloorPlanSVG";
 import LShapeEditor from "@/components/LShapeEditor";
 import MultiRectEditor, { SubRectDeck } from "@/components/MultiRectEditor";
-import PolygonEditor, { PolygonVertex } from "@/components/PolygonEditor";
+import PolygonEditor, { PolygonVertex, ComputedBlock } from "@/components/PolygonEditor";
 import { Calculator, Download, Ruler, Layers, LayoutGrid, ArrowLeft, Combine, PenTool } from "lucide-react";
 
 const Index = () => {
@@ -29,6 +29,7 @@ const Index = () => {
     { id: crypto.randomUUID(), ancho: 0, largo: 0 },
   ]);
   const [polyVertices, setPolyVertices] = useState<PolygonVertex[]>([]);
+  const [polyBlocks, setPolyBlocks] = useState<ComputedBlock[]>([]);
   const [medidaTabla, setMedidaTabla] = useState<"2.2" | "2.9">("2.2");
   const [sentido, setSentido] = useState<"ancho" | "largo">("ancho");
   const [altura, setAltura] = useState<AlturaDisponible>("5a7");
@@ -68,30 +69,16 @@ const Index = () => {
     }
 
     if (forma === "poligono") {
-      // For block-based shapes, compute area as sum of block rects
-      const allX = polyVertices.map((v) => v.x);
-      const allY = polyVertices.map((v) => v.y);
-      const bboxW = Math.max(...allX) - Math.min(...allX);
-      const bboxH = Math.max(...allY) - Math.min(...allY);
-      // Area: each 4 consecutive vertices form a block rectangle
-      const closedVerts = polyVertices.slice(0, -1); // remove closing dup
-      let area = 0;
-      for (let i = 0; i < closedVerts.length; i += 4) {
-        if (i + 3 < closedVerts.length) {
-          const w = Math.abs(closedVerts[i + 1].x - closedVerts[i].x);
-          const h = Math.abs(closedVerts[i + 2].y - closedVerts[i + 1].y);
-          area += w * h;
-        }
-      }
-      if (area <= 0) area = bboxW * bboxH; // fallback
+      const validBlocks = polyBlocks.filter(b => b.w > 0 && b.h > 0);
+      if (validBlocks.length === 0) return;
       const input: DeckInput = {
-        forma: "poligono",
-        ancho: bboxW, largo: bboxH,
-        polygonVertices: closedVerts,
-        polygonArea: area,
+        forma: "multi-rect",
+        ancho: 0, largo: 0,
+        subRects: validBlocks.map(b => ({ ancho: b.w, largo: b.h })),
         medidaTabla, sentido: mappedSentido, altura, estiloColocacion, coverPerimetral: cover,
       };
-      setResult(calculateDeck(input));
+      const r = calculateDeck(input);
+      setResult({ ...r, forma: "poligono" });
       return;
     }
 
@@ -128,9 +115,9 @@ const Index = () => {
       const first = subRects.find(r => r.ancho > 0 && r.largo > 0);
       return first ? { ancho: first.ancho, largo: first.largo } : { ancho: 0, largo: 0 };
     }
-    if (forma === "poligono" && polyVertices.length > 1) {
-      const xs = polyVertices.map(v => v.x);
-      const ys = polyVertices.map(v => v.y);
+    if (forma === "poligono" && polyBlocks.length > 0) {
+      const xs = polyBlocks.flatMap(b => [b.x, b.x + b.w]);
+      const ys = polyBlocks.flatMap(b => [b.y, b.y + b.h]);
       return { ancho: Math.max(...xs) - Math.min(...xs), largo: Math.max(...ys) - Math.min(...ys) };
     }
     return { ancho: 0, largo: 0 };
@@ -213,7 +200,7 @@ const Index = () => {
               <MultiRectEditor rects={subRects} onChange={setSubRects} />
             )}
             {forma === "poligono" && (
-              <PolygonEditor vertices={polyVertices} onChange={setPolyVertices} />
+              <PolygonEditor vertices={polyVertices} onChange={setPolyVertices} onBlocksChange={setPolyBlocks} />
             )}
           </CardContent>
         </Card>
@@ -372,7 +359,7 @@ const Index = () => {
                   <CardTitle className="text-lg">Plano de Planta</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <FloorPlanSVG result={result} ancho={displayAncho} largo={displayLargo} cover={cover} />
+                  <FloorPlanSVG result={result} ancho={displayAncho} largo={displayLargo} cover={cover} polyBlocks={forma === "poligono" ? polyBlocks : undefined} />
                 </CardContent>
               </Card>
             )}
