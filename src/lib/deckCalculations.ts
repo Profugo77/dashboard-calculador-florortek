@@ -69,7 +69,7 @@ export interface DeckResult {
  * At each joint, two tubes are placed ~3cm apart (double structure).
  * Between joints, tubes are distributed proportionally with max spacing.
  */
-const MIN_TUBE_DISTANCE = 0.15; // 15 cm min distance between any two tubes
+const MIN_TUBE_DISTANCE = 0.20; // 20 cm min distance between any two tubes (does NOT apply within a double-tube pair)
 const MAX_BOARD_OVERHANG = 0.06; // 6 cm max board overhang past last tube
 
 function calculateTubePositionsWithJoints(
