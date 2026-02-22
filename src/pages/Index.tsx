@@ -33,14 +33,6 @@ const cotizadores: Cotizador[] = [
     active: true,
   },
   {
-    id: "deck-avanzado",
-    title: "Deck Avanzado",
-    description: "Cotización avanzada con opciones extendidas",
-    icon: Layers,
-    route: "/deck-avanzado",
-    active: true,
-  },
-  {
     id: "pedraflex",
     title: "Pedraflex",
     description: "Placas, adhesivos y esquemas de colocación",
