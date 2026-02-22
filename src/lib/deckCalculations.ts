@@ -6,7 +6,7 @@ export interface CoverPerimetral {
 }
 
 export type AlturaDisponible = "5a7" | "mas7";
-export type FormaArea = "rectangular" | "L";
+export type FormaArea = "rectangular" | "L" | "multi-rect" | "poligono";
 export type EstiloColocacion = "panos" | "trabado";
 
 export interface LShapeConfig {
@@ -21,11 +21,19 @@ export interface TubePosition {
   isDouble: boolean;
 }
 
+export interface SubRectInput {
+  ancho: number;
+  largo: number;
+}
+
 export interface DeckInput {
   forma: FormaArea;
   ancho: number;
   largo: number;
   lShape?: LShapeConfig;
+  subRects?: SubRectInput[];
+  polygonVertices?: { x: number; y: number }[];
+  polygonArea?: number;
   medidaTabla: "2.2" | "2.9";
   sentido: "horizontal" | "vertical";
   altura: AlturaDisponible;
@@ -161,8 +169,40 @@ function getTubeLengthAtPosition(
   }
 }
 
+export function calculateDeckMultiRect(input: DeckInput): DeckResult {
+  const rects = input.subRects || [];
+  const results = rects.map((r) =>
+    calculateDeck({ ...input, forma: "rectangular", ancho: r.ancho, largo: r.largo, subRects: undefined })
+  );
+  return {
+    superficieReal: results.reduce((s, r) => s + r.superficieReal, 0),
+    superficieConDesperdicio: Math.ceil(results.reduce((s, r) => s + r.superficieConDesperdicio, 0) * 100) / 100,
+    metrosLinealesAluminio: Math.ceil(results.reduce((s, r) => s + r.metrosLinealesAluminio, 0) * 100) / 100,
+    cantidadTubos: results.reduce((s, r) => s + r.cantidadTubos, 0),
+    pilotines: results.reduce((s, r) => s + r.pilotines, 0),
+    clips: results.reduce((s, r) => s + r.clips, 0),
+    tornillos: results.reduce((s, r) => s + r.tornillos, 0),
+    mlCoverPerimetral: Math.ceil(results.reduce((s, r) => s + r.mlCoverPerimetral, 0) * 100) / 100,
+    tubePositions: results[0]?.tubePositions ?? [],
+    tubeLength: results[0]?.tubeLength ?? 0,
+    pilotinPositions: results[0]?.pilotinPositions ?? [],
+    tubeDirection: results[0]?.tubeDirection ?? "vertical",
+    separacionTubos: results[0]?.separacionTubos ?? 0,
+    separacionPilotines: results[0]?.separacionPilotines ?? 0,
+    tipoAluminio: results[0]?.tipoAluminio ?? "",
+    estiloColocacion: input.estiloColocacion,
+    boardLength: parseFloat(input.medidaTabla),
+    forma: "multi-rect",
+  };
+}
+
 export function calculateDeck(input: DeckInput): DeckResult {
+  if (input.forma === "multi-rect" && input.subRects) {
+    return calculateDeckMultiRect(input);
+  }
+
   const isL = input.forma === "L" && input.lShape;
+  const isPoly = input.forma === "poligono" && input.polygonArea;
 
   const ancho = isL ? input.lShape!.anchoTotal : input.ancho;
   const largo = isL ? input.lShape!.largoTotal : input.largo;
@@ -172,6 +212,8 @@ export function calculateDeck(input: DeckInput): DeckResult {
   if (isL) {
     const ls = input.lShape!;
     superficieReal = ls.anchoTotal * ls.largoBrazo + ls.anchoBrazo * (ls.largoTotal - ls.largoBrazo);
+  } else if (isPoly) {
+    superficieReal = input.polygonArea!;
   } else {
     superficieReal = ancho * largo;
   }
