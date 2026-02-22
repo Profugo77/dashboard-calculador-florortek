@@ -25,7 +25,7 @@ export interface AvzCalcResult {
 
 /* ─── Engineering constraints ─── */
 const MAX_VOLADIZO = 0.06; // 6 cm max board overhang past last beam
-const MIN_BEAM_DISTANCE = 0.15; // 15 cm min distance between any two beams
+const MIN_BEAM_DISTANCE = 0.20; // 20 cm min distance between any two beams (does NOT apply within a double-beam pair)
 const MAX_PILOTINE_SPACING = 0.40; // 40 cm max between pilotines along a beam
 
 /* ─── Optimization: 35–40 cm beam spacing, with ≤6cm voladizo, min 15cm between beams ─── */
