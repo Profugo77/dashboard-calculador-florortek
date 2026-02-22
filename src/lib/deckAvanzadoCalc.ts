@@ -23,27 +23,30 @@ export interface AvzCalcResult {
   doubleBeamCount: number;
 }
 
-/* ─── Max overhang (voladizo) for boards ─── */
-const MAX_VOLADIZO = 0.10; // 10 cm max board overhang past last beam
+/* ─── Engineering constraints ─── */
+const MAX_VOLADIZO = 0.06; // 6 cm max board overhang past last beam
+const MIN_BEAM_DISTANCE = 0.15; // 15 cm min distance between any two beams
 const MAX_PILOTINE_SPACING = 0.40; // 40 cm max between pilotines along a beam
 
-/* ─── Optimization: 35–40 cm beam spacing, with ≤10cm voladizo ─── */
+/* ─── Optimization: 35–40 cm beam spacing, with ≤6cm voladizo, min 15cm between beams ─── */
 export function optimizeBeamSpacing(dist: number): { count: number; spacing: number } {
-  // Beams at 0 and dist (edges), inner beams spaced 35-40 cm
-  // With voladizo: first beam can be up to 10cm from edge, last beam up to 10cm from other edge
-  // This means the "beam span" can be dist - 2*voladizo at minimum
-  // But for simplicity and structural safety, we place beams at 0 and dist (no overhang)
-  // and optimize inner spacing between 35-40cm
+  // Try to use fewest beams possible with spacing between 35-40 cm
+  // No two beams closer than 15cm
   const nMax = Math.ceil(dist / 0.35);
   const spacingMax = dist / nMax;
   const nLess = nMax - 1;
   if (nLess >= 1) {
     const spacingLess = dist / nLess;
-    if (spacingLess <= 0.40) {
+    if (spacingLess <= 0.40 && spacingLess >= MIN_BEAM_DISTANCE) {
       return { count: nLess + 1, spacing: spacingLess };
     }
   }
-  return { count: nMax + 1, spacing: spacingMax };
+  if (spacingMax >= MIN_BEAM_DISTANCE) {
+    return { count: nMax + 1, spacing: spacingMax };
+  }
+  // Fallback: ensure minimum distance
+  const n = Math.max(1, Math.floor(dist / MIN_BEAM_DISTANCE));
+  return { count: n + 1, spacing: dist / n };
 }
 
 /* ─── Calculate pilotines for a beam, max 40cm spacing ─── */
@@ -79,9 +82,16 @@ export function calculateRect(
   const tablasUn = filasTablas * piecesPerRow;
 
   // Board joints (where boards meet end-to-end)
+  // Filter out joints that would place a double beam too close (<15cm) to a regular beam
+  const spacingM = sepVigas / 100;
+  const regularBeamPositions = Array.from({ length: cantVigas }, (_, i) => Math.round(i * spacingM * 100) / 100);
   const boardJoints: number[] = [];
   for (let p = boardLen; p < boardDim - 0.05; p += boardLen) {
-    boardJoints.push(Math.round(p * 100) / 100);
+    const pos = Math.round(p * 100) / 100;
+    const tooClose = regularBeamPositions.some(bp => Math.abs(bp - pos) > 0 && Math.abs(bp - pos) < MIN_BEAM_DISTANCE);
+    if (!tooClose) {
+      boardJoints.push(pos);
+    }
   }
 
   // Clips: 1 per beam×row intersection + 10%
