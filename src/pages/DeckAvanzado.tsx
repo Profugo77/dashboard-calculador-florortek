@@ -12,82 +12,70 @@ type BoardLen = 2.2 | 2.9;
 
 interface CalcResult {
   m2Netos: number;
-  m2Comerciales: number;
-  tablasNetas: number;
-  tablasConDesp: number;
+  m2Compra: number;
+  tablasUn: number;
   vigasMl: number;
   cantVigas: number;
   sepVigas: number;
   clips: number;
   filasTablas: number;
-  desperdicio: number;
 }
 
-/* ─── Beam optimisation: golden rule ─── */
+/* ─── optimisation logic ─── */
 function optimizeBeamSpacing(dist: number): { count: number; spacing: number } {
-  // nIdeal = spaces needed at 35cm target
-  const nIdeal = Math.ceil(dist / 0.35);
-  const spacingIdeal = dist / nIdeal;
+  const nMax = Math.ceil(dist / 0.35);
+  const spacingMax = dist / nMax;
 
-  // Try with one fewer space (one fewer beam line)
-  const nLess = nIdeal - 1;
+  const nLess = nMax - 1;
   if (nLess >= 1) {
     const spacingLess = dist / nLess;
-    // Accept if spacing stays within 35-40cm range
-    if (spacingLess >= 0.35 && spacingLess <= 0.40) {
-      return { count: nLess + 1, spacing: spacingLess }; // +1 for beam at position 0
+    if (spacingLess <= 0.40) {
+      return { count: nLess + 1, spacing: spacingLess };
     }
   }
-  return { count: nIdeal + 1, spacing: spacingIdeal };
+  return { count: nMax + 1, spacing: spacingMax };
 }
 
 function calculate(
   largo: number,
   ancho: number,
   dir: BoardDir,
-  boardLen: BoardLen,
-  despPct: number
+  boardLen: BoardLen
 ): CalcResult {
   const BOARD_W = 0.15;
-  const m2Netos = Math.round(largo * ancho * 100) / 100;
+  const m2Netos = largo * ancho;
+  const m2Compra = Math.ceil(m2Netos * 1.07 * 100) / 100;
 
   // Beams run perpendicular to boards
-  const beamRunDim = dir === "horizontal" ? largo : ancho;
-  const beamLength = dir === "horizontal" ? ancho : largo;
+  const beamRunDim = dir === "horizontal" ? largo : ancho; // dimension across which beams are spaced
+  const beamLength = dir === "horizontal" ? ancho : largo; // each beam's length
 
   const { count: cantVigas, spacing: sepVigas } = optimizeBeamSpacing(beamRunDim);
+
   const vigasMl = Math.ceil(cantVigas * beamLength * 100) / 100;
 
-  // Boards stack along the perpendicular dimension
+  // Boards stack perpendicular
   const stackDim = dir === "horizontal" ? largo : ancho;
   const filasTablas = Math.ceil(stackDim / BOARD_W);
 
-  // Board pieces per row (along board direction)
+  // How many board pieces per row
   const boardDim = dir === "horizontal" ? ancho : largo;
   const piecesPerRow = Math.ceil(boardDim / boardLen);
-  const tablasNetas = filasTablas * piecesPerRow;
+  const tablasUn = filasTablas * piecesPerRow;
 
-  // Waste factor
-  const tablasConDesp = Math.ceil(tablasNetas * (1 + despPct / 100));
-
-  // M² Comerciales = tablas enteras con desperdicio × ancho × largo de tabla
-  const m2Comerciales = Math.round(tablasConDesp * BOARD_W * boardLen * 100) / 100;
-
-  // Clips: 1 per beam-row crossing + 10% for start/end clips
+  // Clips: 1 per beam-row intersection + 10%
   const rawClips = cantVigas * filasTablas;
   const clips = Math.ceil(rawClips * 1.10);
 
   return {
-    m2Netos,
-    m2Comerciales,
-    tablasNetas,
-    tablasConDesp,
+    m2Netos: Math.round(m2Netos * 100) / 100,
+    m2Compra,
+    tablasUn,
     vigasMl,
     cantVigas,
     sepVigas: Math.round(sepVigas * 1000) / 10,
     clips,
     filasTablas,
-    desperdicio: despPct,
   };
 }
 
@@ -99,9 +87,8 @@ const DeckAvanzado = () => {
   const [ancho, setAncho] = useState(3);
   const [dir, setDir] = useState<BoardDir>("horizontal");
   const [boardLen, setBoardLen] = useState<BoardLen>(2.2);
-  const [despPct, setDespPct] = useState(7);
 
-  const result = useMemo(() => calculate(largo, ancho, dir, boardLen, despPct), [largo, ancho, dir, boardLen, despPct]);
+  const result = useMemo(() => calculate(largo, ancho, dir, boardLen), [largo, ancho, dir, boardLen]);
 
   /* ─── PDF ─── */
   const handlePDF = () => {
@@ -141,9 +128,8 @@ const DeckAvanzado = () => {
 
     const rows = [
       ["M² Netos", `${result.m2Netos} m²`],
-      ["M² Comerciales", `${result.m2Comerciales} m²`],
-      ["Tablas (netas)", `${result.tablasNetas} un`],
-      ["Tablas (con desp. ${result.desperdicio}%)", `${result.tablasConDesp} un`],
+      ["M² Compra (+7%)", `${result.m2Compra} m²`],
+      ["Tablas", `${result.tablasUn} un`],
       ["Vigas (ml)", `${result.vigasMl} ml`],
       ["Clips y Fijaciones", `${result.clips} un`],
     ];
@@ -217,8 +203,8 @@ const DeckAvanzado = () => {
   /* ─── result cards config ─── */
   const cards = [
     { label: "M² Netos", value: `${result.m2Netos}`, unit: "m²", color: "hsl(170 100% 26%)", icon: Grid3X3 },
-    { label: "M² Comerciales", value: `${result.m2Comerciales}`, unit: "m²", color: "hsl(142 60% 40%)", icon: Package },
-    { label: "Tablas", value: `${result.tablasConDesp}`, unit: "un", color: "hsl(30 70% 50%)", icon: Ruler },
+    { label: "M² Compra", value: `${result.m2Compra}`, unit: "m²", color: "hsl(142 60% 40%)", icon: Package },
+    { label: "Tablas", value: `${result.tablasUn}`, unit: "un", color: "hsl(30 70% 50%)", icon: Ruler },
     { label: "Vigas", value: `${result.vigasMl}`, unit: "ml", color: "hsl(200 60% 45%)", icon: Ruler },
     { label: "Clips", value: `${result.clips}`, unit: "un", color: "hsl(260 50% 55%)", icon: Wrench },
   ];
@@ -309,27 +295,6 @@ const DeckAvanzado = () => {
                 ))}
               </div>
               <p className="text-[10px] mt-1" style={{ color: "hsl(200 10% 55%)" }}>Ancho fijo: 15 cm</p>
-            </div>
-
-            {/* Waste % */}
-            <div>
-              <Label className="text-xs font-semibold" style={{ color: "hsl(200 10% 35%)" }}>Desperdicio (%)</Label>
-              <div className="grid grid-cols-2 gap-2 mt-1.5">
-                {[7, 10].map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setDespPct(p)}
-                    className="text-xs font-semibold py-2 rounded-lg border transition-all"
-                    style={{
-                      background: despPct === p ? "hsl(170 100% 26%)" : "white",
-                      color: despPct === p ? "white" : "hsl(200 10% 35%)",
-                      borderColor: despPct === p ? "hsl(170 100% 26%)" : "hsl(200 10% 85%)",
-                    }}
-                  >
-                    {p}%
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* Beam info */}
