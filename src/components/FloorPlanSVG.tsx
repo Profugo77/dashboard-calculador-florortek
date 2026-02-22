@@ -168,18 +168,38 @@ const FloorPlanSVG = ({ result, ancho, largo, cover }: FloorPlanSVGProps) => {
             <rect x={ox} y={oy} width={dw} height={dh} fill="hsl(170 60% 90%)" stroke="hsl(170 100% 26%)" strokeWidth={2} rx={4} />
           )}
 
-          {result.tubePositions.map((tube, i) => {
+          {/* Single tubes */}
+          {result.tubePositions.filter(t => !t.isDouble).map((tube, i) => {
             const ep = getTubeEndpoints(tube.position);
             return (
               <line
-                key={`tube-${i}`}
+                key={`tube-s-${i}`}
                 x1={ep.x1} y1={ep.y1} x2={ep.x2} y2={ep.y2}
-                stroke={tube.isDouble ? "hsl(200 30% 25%)" : "hsl(200 10% 35%)"}
-                strokeWidth={tube.isDouble ? 2.2 : 1.5}
-                strokeDasharray={tube.isDouble ? "none" : "6 3"}
+                stroke="hsl(200 10% 35%)" strokeWidth={1.5} strokeDasharray="6 3"
               />
             );
           })}
+
+          {/* Double tubes — rendered as two parallel orange lines */}
+          {(() => {
+            const doubles = result.tubePositions.filter(t => t.isDouble);
+            const pairs: [typeof doubles[0], typeof doubles[0]][] = [];
+            for (let i = 0; i < doubles.length; i += 2) {
+              if (doubles[i + 1]) pairs.push([doubles[i], doubles[i + 1]]);
+            }
+            return pairs.map((pair, i) => {
+              const ep1 = getTubeEndpoints(pair[0].position);
+              const ep2 = getTubeEndpoints(pair[1].position);
+              return (
+                <g key={`tube-d-${i}`}>
+                  <line x1={ep1.x1} y1={ep1.y1} x2={ep1.x2} y2={ep1.y2}
+                    stroke="hsl(30 90% 50%)" strokeWidth={2.5} strokeLinecap="round" />
+                  <line x1={ep2.x1} y1={ep2.y1} x2={ep2.x2} y2={ep2.y2}
+                    stroke="hsl(30 90% 50%)" strokeWidth={2.5} strokeLinecap="round" />
+                </g>
+              );
+            });
+          })()}
 
           {result.pilotinPositions.map((pos, i) => (
             <circle key={`pil-${i}`} cx={ox + pos.x * scale} cy={oy + pos.y * scale} r={3} fill="hsl(170 100% 26%)" />
@@ -213,8 +233,8 @@ const FloorPlanSVG = ({ result, ancho, largo, cover }: FloorPlanSVGProps) => {
             Tubos
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-5 border-t-2" style={{ borderColor: "hsl(200 30% 25%)" }} />
-            Doble estructura
+            <span className="inline-block w-5 border-t-[3px]" style={{ borderColor: "hsl(30 90% 50%)" }} />
+            Doble viga
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: "hsl(170 100% 26%)" }} />
