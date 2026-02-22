@@ -26,6 +26,13 @@ export interface SubRectInput {
   largo: number;
 }
 
+export interface PolyBlockInput {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface DeckInput {
   forma: FormaArea;
   ancho: number;
@@ -34,6 +41,7 @@ export interface DeckInput {
   subRects?: SubRectInput[];
   polygonVertices?: { x: number; y: number }[];
   polygonArea?: number;
+  polyBlocks?: PolyBlockInput[];
   medidaTabla: "2.2" | "2.9";
   sentido: "horizontal" | "vertical";
   altura: AlturaDisponible;
@@ -190,9 +198,140 @@ export function calculateDeckMultiRect(input: DeckInput): DeckResult {
   };
 }
 
+// ── Polygon (Forma Libre) helpers ──
+
+function mergeSegments(segments: [number, number][]): [number, number][] {
+  if (segments.length === 0) return [];
+  segments.sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [[...segments[0]]];
+  for (let i = 1; i < segments.length; i++) {
+    const last = merged[merged.length - 1];
+    if (segments[i][0] <= last[1] + 0.001) {
+      last[1] = Math.max(last[1], segments[i][1]);
+    } else {
+      merged.push([...segments[i]]);
+    }
+  }
+  return merged;
+}
+
+function getTubeSegmentsInBlocks(
+  position: number,
+  tubeDirection: "horizontal" | "vertical",
+  blocks: PolyBlockInput[]
+): [number, number][] {
+  const segments: [number, number][] = [];
+  if (tubeDirection === "vertical") {
+    for (const b of blocks) {
+      if (position >= b.x - 0.001 && position <= b.x + b.w + 0.001) {
+        segments.push([b.y, b.y + b.h]);
+      }
+    }
+  } else {
+    for (const b of blocks) {
+      if (position >= b.y - 0.001 && position <= b.y + b.h + 0.001) {
+        segments.push([b.x, b.x + b.w]);
+      }
+    }
+  }
+  return mergeSegments(segments);
+}
+
+function calculateDeckPolygon(input: DeckInput): DeckResult {
+  const blocks = input.polyBlocks!;
+  const minX = Math.min(...blocks.map(b => b.x));
+  const minY = Math.min(...blocks.map(b => b.y));
+  const normBlocks = blocks.map(b => ({ x: b.x - minX, y: b.y - minY, w: b.w, h: b.h }));
+
+  const ancho = Math.max(...normBlocks.map(b => b.x + b.w));
+  const largo = Math.max(...normBlocks.map(b => b.y + b.h));
+
+  const superficieReal = normBlocks.reduce((s, b) => s + b.w * b.h, 0);
+  const superficieConDesperdicio = superficieReal * 1.10;
+
+  const tubeDirection = input.sentido === "horizontal" ? "vertical" : "horizontal";
+  const spacingDimension = tubeDirection === "vertical" ? ancho : largo;
+  const boardLength = parseFloat(input.medidaTabla);
+
+  const maxTubeSpacing = 0.37;
+  const { positions: tubePositions, typicalSpacing } = calculateTubePositionsWithJoints(
+    spacingDimension, boardLength, input.estiloColocacion, maxTubeSpacing
+  );
+
+  // ML: actual tube lengths within blocks
+  let mlTubos = 0;
+  for (const tube of tubePositions) {
+    const segs = getTubeSegmentsInBlocks(tube.position, tubeDirection, normBlocks);
+    mlTubos += segs.reduce((s, [a, b]) => s + (b - a), 0);
+  }
+  const metrosLinealesAluminio = Math.ceil(mlTubos * 100) / 100;
+
+  // Pilotines along each tube's real segments
+  const maxPilotinSpacing = input.altura === "mas7" ? 0.75 : 0.50;
+  const pilotinPositions: { x: number; y: number }[] = [];
+  let totalPilotines = 0;
+
+  const processedDoubleGroups = new Set<number>();
+  for (const tube of tubePositions) {
+    if (tube.isDouble) {
+      const groupKey = Math.round(tube.position * 20);
+      if (processedDoubleGroups.has(groupKey)) continue;
+      processedDoubleGroups.add(groupKey);
+    }
+    const segs = getTubeSegmentsInBlocks(tube.position, tubeDirection, normBlocks);
+    for (const [segStart, segEnd] of segs) {
+      const segLen = segEnd - segStart;
+      const numPilSpaces = Math.ceil(segLen / maxPilotinSpacing);
+      const pilSpacing = segLen / numPilSpaces;
+      for (let j = 0; j <= numPilSpaces; j++) {
+        const pos = segStart + j * pilSpacing;
+        if (tubeDirection === "vertical") {
+          pilotinPositions.push({ x: tube.position, y: pos });
+        } else {
+          pilotinPositions.push({ x: pos, y: tube.position });
+        }
+      }
+      totalPilotines += numPilSpaces + 1;
+    }
+  }
+
+  const clips = Math.ceil(superficieReal * 18);
+  const tornillos = clips;
+  const tipoAluminio = input.altura === "mas7" ? "Aluminio 40×40" : "Aluminio 20×40";
+
+  const refDim = tubeDirection === "vertical" ? largo : ancho;
+  const numPilRef = Math.ceil(refDim / maxPilotinSpacing);
+  const typicalPilSpacing = refDim / numPilRef;
+
+  return {
+    superficieReal,
+    superficieConDesperdicio: Math.ceil(superficieConDesperdicio * 100) / 100,
+    metrosLinealesAluminio,
+    cantidadTubos: tubePositions.length,
+    pilotines: totalPilotines,
+    clips,
+    tornillos,
+    mlCoverPerimetral: 0,
+    tubePositions,
+    tubeLength: tubeDirection === "vertical" ? largo : ancho,
+    pilotinPositions,
+    tubeDirection,
+    separacionTubos: Math.round(typicalSpacing * 100 * 100) / 100,
+    separacionPilotines: Math.round(typicalPilSpacing * 100 * 100) / 100,
+    tipoAluminio,
+    estiloColocacion: input.estiloColocacion,
+    boardLength,
+    forma: "poligono",
+  };
+}
+
 export function calculateDeck(input: DeckInput): DeckResult {
   if (input.forma === "multi-rect" && input.subRects) {
     return calculateDeckMultiRect(input);
+  }
+
+  if (input.forma === "poligono" && input.polyBlocks && input.polyBlocks.length > 0) {
+    return calculateDeckPolygon(input);
   }
 
   const isL = input.forma === "L" && input.lShape;

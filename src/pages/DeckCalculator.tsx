@@ -49,7 +49,7 @@ const Index = () => {
     lShapeConfig.largoBrazo > 0 && lShapeConfig.largoBrazo < lShapeConfig.largoTotal;
   const isValidMultiRect =
     forma === "multi-rect" && subRects.some((r) => r.ancho > 0 && r.largo > 0);
-  const isValidPoly = forma === "poligono" && polyVertices.length >= 5; // at least 1 block = 4 verts + closing
+  const isValidPoly = forma === "poligono" && polyBlocks.some(b => b.w > 0 && b.h > 0);
   const isValid = isValidRect || isValidL || isValidMultiRect || isValidPoly;
 
   const handleCalculate = () => {
@@ -72,13 +72,12 @@ const Index = () => {
       const validBlocks = polyBlocks.filter(b => b.w > 0 && b.h > 0);
       if (validBlocks.length === 0) return;
       const input: DeckInput = {
-        forma: "multi-rect",
+        forma: "poligono",
         ancho: 0, largo: 0,
-        subRects: validBlocks.map(b => ({ ancho: b.w, largo: b.h })),
+        polyBlocks: validBlocks.map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h })),
         medidaTabla, sentido: mappedSentido, altura, estiloColocacion, coverPerimetral: cover,
       };
-      const r = calculateDeck(input);
-      setResult({ ...r, forma: "poligono" });
+      setResult(calculateDeck(input));
       return;
     }
 
