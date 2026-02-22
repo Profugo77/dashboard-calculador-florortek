@@ -14,7 +14,7 @@ import { exportPDF } from "@/lib/exportPDF";
 import FloorPlanSVG from "@/components/FloorPlanSVG";
 import LShapeEditor from "@/components/LShapeEditor";
 import MultiRectEditor, { SubRectDeck } from "@/components/MultiRectEditor";
-import PolygonEditor, { PolygonVertex, polygonArea } from "@/components/PolygonEditor";
+import PolygonEditor, { PolygonVertex } from "@/components/PolygonEditor";
 import { Calculator, Download, Ruler, Layers, LayoutGrid, ArrowLeft, Combine, PenTool } from "lucide-react";
 
 const Index = () => {
@@ -48,9 +48,7 @@ const Index = () => {
     lShapeConfig.largoBrazo > 0 && lShapeConfig.largoBrazo < lShapeConfig.largoTotal;
   const isValidMultiRect =
     forma === "multi-rect" && subRects.some((r) => r.ancho > 0 && r.largo > 0);
-  const isValidPoly = forma === "poligono" && polyVertices.length >= 4 &&
-    Math.abs(polyVertices[polyVertices.length - 1].x - polyVertices[0].x) < 0.01 &&
-    Math.abs(polyVertices[polyVertices.length - 1].y - polyVertices[0].y) < 0.01;
+  const isValidPoly = forma === "poligono" && polyVertices.length >= 5; // at least 1 block = 4 verts + closing
   const isValid = isValidRect || isValidL || isValidMultiRect || isValidPoly;
 
   const handleCalculate = () => {
@@ -70,12 +68,22 @@ const Index = () => {
     }
 
     if (forma === "poligono") {
-      const closedVerts = polyVertices.slice(0, -1); // remove closing duplicate
-      const area = polygonArea(closedVerts);
-      const xs = closedVerts.map((v) => v.x);
-      const ys = closedVerts.map((v) => v.y);
-      const bboxW = Math.max(...xs) - Math.min(...xs);
-      const bboxH = Math.max(...ys) - Math.min(...ys);
+      // For block-based shapes, compute area as sum of block rects
+      const allX = polyVertices.map((v) => v.x);
+      const allY = polyVertices.map((v) => v.y);
+      const bboxW = Math.max(...allX) - Math.min(...allX);
+      const bboxH = Math.max(...allY) - Math.min(...allY);
+      // Area: each 4 consecutive vertices form a block rectangle
+      const closedVerts = polyVertices.slice(0, -1); // remove closing dup
+      let area = 0;
+      for (let i = 0; i < closedVerts.length; i += 4) {
+        if (i + 3 < closedVerts.length) {
+          const w = Math.abs(closedVerts[i + 1].x - closedVerts[i].x);
+          const h = Math.abs(closedVerts[i + 2].y - closedVerts[i + 1].y);
+          area += w * h;
+        }
+      }
+      if (area <= 0) area = bboxW * bboxH; // fallback
       const input: DeckInput = {
         forma: "poligono",
         ancho: bboxW, largo: bboxH,
