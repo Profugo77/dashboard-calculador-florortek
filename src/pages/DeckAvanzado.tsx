@@ -44,7 +44,7 @@ function calculate(
 ): CalcResult {
   const BOARD_W = 0.15;
   const m2Netos = largo * ancho;
-  const m2Compra = Math.ceil(m2Netos * 1.07 * 100) / 100;
+  const m2Compra = Math.ceil(m2Netos * 1.10 * 100) / 100;
 
   // Beams run perpendicular to boards
   const beamRunDim = dir === "horizontal" ? largo : ancho; // dimension across which beams are spaced
@@ -128,7 +128,7 @@ const DeckAvanzado = () => {
 
     const rows = [
       ["M² Netos", `${result.m2Netos} m²`],
-      ["M² Compra (+7%)", `${result.m2Compra} m²`],
+      ["M² Compra (+10%)", `${result.m2Compra} m²`],
       ["Tablas", `${result.tablasUn} un`],
       ["Vigas (ml)", `${result.vigasMl} ml`],
       ["Clips y Fijaciones", `${result.clips} un`],
@@ -203,7 +203,7 @@ const DeckAvanzado = () => {
   /* ─── result cards config ─── */
   const cards = [
     { label: "M² Netos", value: `${result.m2Netos}`, unit: "m²", color: "hsl(170 100% 26%)", icon: Grid3X3 },
-    { label: "M² Compra", value: `${result.m2Compra}`, unit: "m²", color: "hsl(142 60% 40%)", icon: Package },
+    { label: "M² Compra (+10%)", value: `${result.m2Compra}`, unit: "m²", color: "hsl(142 60% 40%)", icon: Package },
     { label: "Tablas", value: `${result.tablasUn}`, unit: "un", color: "hsl(30 70% 50%)", icon: Ruler },
     { label: "Vigas", value: `${result.vigasMl}`, unit: "ml", color: "hsl(200 60% 45%)", icon: Ruler },
     { label: "Clips", value: `${result.clips}`, unit: "un", color: "hsl(260 50% 55%)", icon: Wrench },
