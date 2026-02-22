@@ -7,10 +7,9 @@ import { Label } from "@/components/ui/label";
 import jsPDF from "jspdf";
 import StructureSchema from "@/components/deck-avanzado/StructureSchema";
 import BoardSchema from "@/components/deck-avanzado/BoardSchema";
-import LShapeDragEditor, { type LShapeDragValues } from "@/components/deck-avanzado/LShapeDragEditor";
 import {
   type BoardDir, type BoardLen, type ShapeMode, type SubRect, type AvzCalcResult,
-  calculateRect, calculateLShape, calculateMultiRect,
+  calculateRect, calculateMultiRect,
 } from "@/lib/deckAvanzadoCalc";
 
 const DeckAvanzado = () => {
@@ -21,7 +20,6 @@ const DeckAvanzado = () => {
   const [shapeMode, setShapeMode] = useState<ShapeMode>("rectangle");
   const [largo, setLargo] = useState(5);
   const [ancho, setAncho] = useState(3);
-  const [lShape, setLShape] = useState<LShapeDragValues>({ anchoTotal: 6, largoTotal: 8, anchoBrazo: 3, largoBrazo: 4 });
   const [subRects, setSubRects] = useState<SubRect[]>([{ id: "1", largo: 5, ancho: 3 }]);
   const [croquisImage, setCroquisImage] = useState<string | null>(null);
   const [croquisLargo, setCroquisLargo] = useState(5);
@@ -36,16 +34,14 @@ const DeckAvanzado = () => {
   const [pilotinManual, setPilotinManual] = useState(20);
 
   // Effective dimensions for schemas
-  const effLargo = shapeMode === "l-shape" ? lShape.largoTotal : shapeMode === "croquis" ? croquisLargo : largo;
-  const effAncho = shapeMode === "l-shape" ? lShape.anchoTotal : shapeMode === "croquis" ? croquisAncho : ancho;
+  const effLargo = shapeMode === "croquis" ? croquisLargo : largo;
+  const effAncho = shapeMode === "croquis" ? croquisAncho : ancho;
 
   // Calculation
   const result: AvzCalcResult = useMemo(() => {
     switch (shapeMode) {
       case "rectangle":
         return calculateRect(largo, ancho, dir, boardLen);
-      case "l-shape":
-        return calculateLShape(lShape, dir, boardLen);
       case "multi-rect":
         return calculateMultiRect(subRects.filter((r) => r.largo > 0 && r.ancho > 0), dir, boardLen);
       case "croquis":
@@ -53,7 +49,7 @@ const DeckAvanzado = () => {
       default:
         return calculateRect(largo, ancho, dir, boardLen);
     }
-  }, [shapeMode, largo, ancho, dir, boardLen, lShape, subRects, croquisLargo, croquisAncho]);
+  }, [shapeMode, largo, ancho, dir, boardLen, subRects, croquisLargo, croquisAncho]);
 
   const finalPilotines = pilotinMode === "manual" ? pilotinManual : result.pilotines;
 
@@ -99,14 +95,9 @@ const DeckAvanzado = () => {
     pdf.setFontSize(10);
     pdf.setFont("helvetica", "normal");
 
-    const modeLabel = { rectangle: "Rectangular", "l-shape": "Forma en L", "multi-rect": "Multi-rectángulo", croquis: "Croquis" };
-    pdf.text(`Modo: ${modeLabel[shapeMode]}`, cx, cy); cy += 5;
-    if (shapeMode === "l-shape") {
-      pdf.text(`Ancho total: ${lShape.anchoTotal}m | Largo total: ${lShape.largoTotal}m`, cx, cy); cy += 5;
-      pdf.text(`Brazo: ${lShape.anchoBrazo}m × ${lShape.largoBrazo}m`, cx, cy); cy += 5;
-    } else {
-      pdf.text(`Largo: ${effLargo} m  |  Ancho: ${effAncho} m`, cx, cy); cy += 5;
-    }
+    const modeLabel = { rectangle: "Rectangular", "multi-rect": "Multi-rectángulo", croquis: "Croquis" };
+    pdf.text(`Modo: ${modeLabel[shapeMode as keyof typeof modeLabel] || shapeMode}`, cx, cy); cy += 5;
+    pdf.text(`Largo: ${effLargo} m  |  Ancho: ${effAncho} m`, cx, cy); cy += 5;
     pdf.text(`Dirección tablas: ${dir === "horizontal" ? "Horizontal" : "Vertical"}  |  Largo tabla: ${boardLen} m`, cx, cy); cy += 5;
     pdf.text(`Separación vigas: ${result.sepVigas} cm  (${result.cantVigas} vigas)`, cx, cy); cy += 10;
 
@@ -185,7 +176,6 @@ const DeckAvanzado = () => {
 
   const shapeModes: { id: ShapeMode; label: string }[] = [
     { id: "rectangle", label: "Rectangular" },
-    { id: "l-shape", label: "Forma L" },
     { id: "multi-rect", label: "Multi-Rect" },
     { id: "croquis", label: "Croquis" },
   ];
@@ -252,10 +242,6 @@ const DeckAvanzado = () => {
                     className="mt-1 text-center font-semibold" />
                 </div>
               </div>
-            )}
-
-            {shapeMode === "l-shape" && (
-              <LShapeDragEditor value={lShape} onChange={setLShape} />
             )}
 
             {shapeMode === "multi-rect" && (
@@ -422,11 +408,7 @@ const DeckAvanzado = () => {
               <div className="w-full overflow-x-auto flex justify-center">
                 {(shapeMode === "rectangle" || shapeMode === "croquis") && (
                   <StructureSchema svgRef={structRef} largo={effLargo} ancho={effAncho} dir={dir} boardLen={boardLen}
-                    result={result} shape="rectangle" />
-                )}
-                {shapeMode === "l-shape" && (
-                  <StructureSchema svgRef={structRef} largo={lShape.largoTotal} ancho={lShape.anchoTotal} dir={dir} boardLen={boardLen}
-                    result={result} shape="l-shape" lShape={lShape} />
+                    result={result} />
                 )}
                 {shapeMode === "multi-rect" && (
                   <div className="flex flex-col gap-4 w-full items-center">
@@ -438,7 +420,7 @@ const DeckAvanzado = () => {
                           <StructureSchema
                             svgRef={idx === 0 ? structRef : undefined}
                             largo={r.largo} ancho={r.ancho} dir={dir} boardLen={boardLen}
-                            result={rResult} shape="rectangle" />
+                            result={rResult} />
                         </Fragment>
                       );
                     })}
@@ -469,18 +451,14 @@ const DeckAvanzado = () => {
               </h4>
               <div className="w-full overflow-x-auto flex justify-center">
                 {(shapeMode === "rectangle" || shapeMode === "croquis") && (
-                  <BoardSchema largo={effLargo} ancho={effAncho} dir={dir} boardLen={boardLen} shape="rectangle" />
-                )}
-                {shapeMode === "l-shape" && (
-                  <BoardSchema largo={lShape.largoTotal} ancho={lShape.anchoTotal} dir={dir} boardLen={boardLen}
-                    shape="l-shape" lShape={lShape} />
+                  <BoardSchema largo={effLargo} ancho={effAncho} dir={dir} boardLen={boardLen} />
                 )}
                 {shapeMode === "multi-rect" && (
                   <div className="flex flex-col gap-4 w-full items-center">
                     {subRects.filter(r => r.largo > 0 && r.ancho > 0).map((r, idx) => (
                       <Fragment key={r.id}>
                         <p className="text-[10px] font-semibold" style={{ color: "hsl(200 10% 50%)" }}>Rectángulo {idx + 1}</p>
-                        <BoardSchema largo={r.largo} ancho={r.ancho} dir={dir} boardLen={boardLen} shape="rectangle" />
+                        <BoardSchema largo={r.largo} ancho={r.ancho} dir={dir} boardLen={boardLen} />
                       </Fragment>
                     ))}
                   </div>

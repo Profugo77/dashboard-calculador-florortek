@@ -1,13 +1,7 @@
 export type BoardDir = "horizontal" | "vertical";
 export type BoardLen = 2.2 | 2.9;
-export type ShapeMode = "rectangle" | "l-shape" | "multi-rect" | "croquis";
+export type ShapeMode = "rectangle" | "multi-rect" | "croquis";
 
-export interface LShapeAvz {
-  anchoTotal: number;
-  largoTotal: number;
-  anchoBrazo: number;
-  largoBrazo: number;
-}
 
 export interface SubRect {
   id: string;
@@ -120,80 +114,6 @@ export function calculateRect(
   };
 }
 
-/* ─── L-shape calculation ─── */
-export function calculateLShape(
-  ls: LShapeAvz,
-  dir: BoardDir,
-  boardLen: BoardLen
-): AvzCalcResult {
-  const BOARD_W = 0.15;
-  const m2Netos = ls.anchoTotal * ls.largoBrazo + ls.anchoBrazo * (ls.largoTotal - ls.largoBrazo);
-  const m2Compra = Math.ceil(m2Netos * 1.10 * 100) / 100;
-
-  // Treat as bounding rectangle for beam/board calcs
-  const largo = ls.largoTotal;
-  const ancho = ls.anchoTotal;
-
-  const beamRunDim = dir === "horizontal" ? largo : ancho;
-  const beamLength = dir === "horizontal" ? ancho : largo;
-  const { count: cantVigas, spacing: sepVigas } = optimizeBeamSpacing(beamRunDim);
-
-  // Beams may be shorter in the L cutout
-  let vigasMl = 0;
-  for (let i = 0; i < cantVigas; i++) {
-    const pos = i * (sepVigas / 100);
-    let len = beamLength;
-    if (dir === "horizontal") {
-      // Beams are horizontal, positioned along largo (Y)
-      if (pos > ls.largoBrazo) len = ls.anchoBrazo;
-    } else {
-      if (pos > ls.anchoBrazo) len = ls.largoBrazo;
-    }
-    vigasMl += len;
-  }
-  vigasMl = Math.ceil(vigasMl * 100) / 100;
-
-  const stackDim = dir === "horizontal" ? largo : ancho;
-  const filasTablas = Math.ceil(stackDim / BOARD_W);
-  const boardDim = dir === "horizontal" ? ancho : largo;
-  const piecesPerRow = Math.ceil(boardDim / boardLen);
-  const tablasUn = Math.ceil(filasTablas * piecesPerRow * (m2Netos / (largo * ancho)));
-
-  const boardJoints: number[] = [];
-  for (let p = boardLen; p < boardDim - 0.05; p += boardLen) {
-    boardJoints.push(Math.round(p * 100) / 100);
-  }
-
-  const rawClips = cantVigas * filasTablas;
-  const clips = Math.ceil(rawClips * 1.10 * (m2Netos / (largo * ancho)));
-
-  // Pilotines: max 40cm along each beam, shared at double-beam joints
-  let totalPilotines = 0;
-  for (let i = 0; i < cantVigas; i++) {
-    const pos = i * (sepVigas / 100);
-    let len = beamLength;
-    if (dir === "horizontal" && pos > ls.largoBrazo) len = ls.anchoBrazo;
-    if (dir === "vertical" && pos > ls.anchoBrazo) len = ls.largoBrazo;
-    totalPilotines += pilotinesForBeam(len);
-  }
-  // Add shared pilotines for double beams at joints
-  totalPilotines += boardJoints.length * pilotinesForBeam(beamLength);
-  const pilotines = totalPilotines;
-
-  return {
-    m2Netos: Math.round(m2Netos * 100) / 100,
-    m2Compra,
-    tablasUn,
-    vigasMl,
-    cantVigas,
-    sepVigas: Math.round(sepVigas * 1000) / 10,
-    clips,
-    filasTablas,
-    pilotines,
-    boardJoints,
-    doubleBeamCount: boardJoints.length,
-  };
-}
 
 /* ─── Multi-rect: sum of independent rectangles ─── */
 export function calculateMultiRect(
