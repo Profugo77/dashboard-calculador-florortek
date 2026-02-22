@@ -79,32 +79,19 @@ function calculateTubePositionsWithJoints(
   maxSpacing: number
 ): { positions: TubePosition[]; typicalSpacing: number } {
   const step = estilo === "trabado" ? boardLength / 2 : boardLength;
-
-  // Calculate regular tube positions first
-  const numSpaces = Math.ceil(spacingDimension / maxSpacing);
-  const regularSpacing = spacingDimension / numSpaces;
-  const regularPositions: number[] = [];
-  for (let i = 0; i <= numSpaces; i++) {
-    regularPositions.push(Math.round(i * regularSpacing * 1000) / 1000);
-  }
-
-  // Find board joints, filtering those too close (<15cm) to regular tubes
-  const joints: number[] = [];
-  for (let pos = step; pos < spacingDimension - 0.05; pos += step) {
-    const roundedPos = Math.round(pos * 100) / 100;
-    const tooClose = regularPositions.some(
-      rp => Math.abs(rp - roundedPos) > 0 && Math.abs(rp - roundedPos) < MIN_TUBE_DISTANCE
-    );
-    if (!tooClose) {
-      joints.push(roundedPos);
-    }
-  }
-
-  const boundaries = [0, ...joints, spacingDimension];
-  const positions: TubePosition[] = [];
   const DOUBLE_OFFSET = 0.015; // 1.5cm each side = 3cm apart
 
-  // Add boundary tubes (edges = single, joints = double)
+  // 1. Board joints are MANDATORY — they must always have double tubes
+  const joints: number[] = [];
+  for (let pos = step; pos < spacingDimension - 0.05; pos += step) {
+    joints.push(Math.round(pos * 100) / 100);
+  }
+
+  // 2. Build segments between boundaries (edges + joints)
+  const boundaries = [0, ...joints, spacingDimension];
+  const positions: TubePosition[] = [];
+
+  // 3. Add boundary tubes: edges = single, joints = double
   for (const pos of boundaries) {
     if (joints.includes(pos)) {
       positions.push({ position: pos - DOUBLE_OFFSET, isDouble: true });
@@ -114,7 +101,8 @@ function calculateTubePositionsWithJoints(
     }
   }
 
-  // Add interior tubes within each segment (max spacing)
+  // 4. Add interior tubes within each segment, but skip any that would be
+  //    too close (<20cm) to a boundary (edge or double tube)
   let typicalSpacing = maxSpacing;
   for (let b = 0; b < boundaries.length - 1; b++) {
     const segStart = boundaries[b];
@@ -131,11 +119,17 @@ function calculateTubePositionsWithJoints(
     if (b === 0) typicalSpacing = spacing;
 
     for (let i = 1; i < numSp; i++) {
-      positions.push({ position: segStart + i * spacing, isDouble: false });
+      const candidatePos = segStart + i * spacing;
+      // Check distance to segment boundaries (which may be double tubes)
+      const distToStart = Math.abs(candidatePos - segStart);
+      const distToEnd = Math.abs(candidatePos - segEnd);
+      if (distToStart >= MIN_TUBE_DISTANCE && distToEnd >= MIN_TUBE_DISTANCE) {
+        positions.push({ position: candidatePos, isDouble: false });
+      }
     }
   }
 
-  // Fallback: if no joints, compute typical spacing from full dimension
+  // Fallback typical spacing
   if (joints.length === 0) {
     const nSp = Math.ceil(spacingDimension / maxSpacing);
     typicalSpacing = spacingDimension / nSp;
