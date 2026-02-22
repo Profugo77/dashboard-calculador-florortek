@@ -13,7 +13,9 @@ import {
 import { exportPDF } from "@/lib/exportPDF";
 import FloorPlanSVG from "@/components/FloorPlanSVG";
 import LShapeEditor from "@/components/LShapeEditor";
-import { Calculator, Download, Ruler, Layers, LayoutGrid, ArrowLeft } from "lucide-react";
+import MultiRectEditor, { SubRectDeck } from "@/components/MultiRectEditor";
+import PolygonEditor, { PolygonVertex, polygonArea } from "@/components/PolygonEditor";
+import { Calculator, Download, Ruler, Layers, LayoutGrid, ArrowLeft, Combine, PenTool } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -23,6 +25,10 @@ const Index = () => {
   const [lShapeConfig, setLShapeConfig] = useState<LShapeConfig>({
     anchoTotal: 0, largoTotal: 0, anchoBrazo: 0, largoBrazo: 0,
   });
+  const [subRects, setSubRects] = useState<SubRectDeck[]>([
+    { id: crypto.randomUUID(), ancho: 0, largo: 0 },
+  ]);
+  const [polyVertices, setPolyVertices] = useState<PolygonVertex[]>([]);
   const [medidaTabla, setMedidaTabla] = useState<"2.2" | "2.9">("2.2");
   const [sentido, setSentido] = useState<"ancho" | "largo">("ancho");
   const [altura, setAltura] = useState<AlturaDisponible>("5a7");
@@ -40,29 +46,61 @@ const Index = () => {
     lShapeConfig.anchoTotal > 0 && lShapeConfig.largoTotal > 0 &&
     lShapeConfig.anchoBrazo > 0 && lShapeConfig.anchoBrazo < lShapeConfig.anchoTotal &&
     lShapeConfig.largoBrazo > 0 && lShapeConfig.largoBrazo < lShapeConfig.largoTotal;
-  const isValid = isValidRect || isValidL;
+  const isValidMultiRect =
+    forma === "multi-rect" && subRects.some((r) => r.ancho > 0 && r.largo > 0);
+  const isValidPoly = forma === "poligono" && polyVertices.length >= 4 &&
+    Math.abs(polyVertices[polyVertices.length - 1].x - polyVertices[0].x) < 0.01 &&
+    Math.abs(polyVertices[polyVertices.length - 1].y - polyVertices[0].y) < 0.01;
+  const isValid = isValidRect || isValidL || isValidMultiRect || isValidPoly;
 
   const handleCalculate = () => {
     if (!isValid) return;
     const mappedSentido = sentido === "ancho" ? "horizontal" : "vertical";
+
+    if (forma === "multi-rect") {
+      const validRects = subRects.filter((r) => r.ancho > 0 && r.largo > 0);
+      const input: DeckInput = {
+        forma: "multi-rect",
+        ancho: 0, largo: 0,
+        subRects: validRects.map((r) => ({ ancho: r.ancho, largo: r.largo })),
+        medidaTabla, sentido: mappedSentido, altura, estiloColocacion, coverPerimetral: cover,
+      };
+      setResult(calculateDeck(input));
+      return;
+    }
+
+    if (forma === "poligono") {
+      const closedVerts = polyVertices.slice(0, -1); // remove closing duplicate
+      const area = polygonArea(closedVerts);
+      const xs = closedVerts.map((v) => v.x);
+      const ys = closedVerts.map((v) => v.y);
+      const bboxW = Math.max(...xs) - Math.min(...xs);
+      const bboxH = Math.max(...ys) - Math.min(...ys);
+      const input: DeckInput = {
+        forma: "poligono",
+        ancho: bboxW, largo: bboxH,
+        polygonVertices: closedVerts,
+        polygonArea: area,
+        medidaTabla, sentido: mappedSentido, altura, estiloColocacion, coverPerimetral: cover,
+      };
+      setResult(calculateDeck(input));
+      return;
+    }
+
     const input: DeckInput = {
       forma,
       ancho: forma === "rectangular" ? parseFloat(ancho) : lShapeConfig.anchoTotal,
       largo: forma === "rectangular" ? parseFloat(largo) : lShapeConfig.largoTotal,
       lShape: forma === "L" ? lShapeConfig : undefined,
-      medidaTabla,
-      sentido: mappedSentido,
-      altura,
-      estiloColocacion,
-      coverPerimetral: cover,
+      medidaTabla, sentido: mappedSentido, altura, estiloColocacion, coverPerimetral: cover,
     };
     setResult(calculateDeck(input));
   };
 
   const handleExport = () => {
     if (!result) return;
-    const a = forma === "rectangular" ? parseFloat(ancho) : lShapeConfig.anchoTotal;
-    const l = forma === "rectangular" ? parseFloat(largo) : lShapeConfig.largoTotal;
+    const a = forma === "rectangular" ? parseFloat(ancho) : forma === "L" ? lShapeConfig.anchoTotal : 0;
+    const l = forma === "rectangular" ? parseFloat(largo) : forma === "L" ? lShapeConfig.largoTotal : 0;
     exportPDF(
       {
         ancho: a, largo: l, medidaTabla,
@@ -73,8 +111,8 @@ const Index = () => {
     );
   };
 
-  const displayAncho = forma === "rectangular" ? parseFloat(ancho) || 0 : lShapeConfig.anchoTotal;
-  const displayLargo = forma === "rectangular" ? parseFloat(largo) || 0 : lShapeConfig.largoTotal;
+  const displayAncho = forma === "rectangular" ? parseFloat(ancho) || 0 : forma === "L" ? lShapeConfig.anchoTotal : 0;
+  const displayLargo = forma === "rectangular" ? parseFloat(largo) || 0 : forma === "L" ? lShapeConfig.largoTotal : 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -100,16 +138,25 @@ const Index = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <RadioGroup value={forma} onValueChange={(v) => { setForma(v as FormaArea); setResult(null); }} className="flex gap-4">
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="rectangular" id="forma-rect" />
-                <Label htmlFor="forma-rect" className="cursor-pointer">Rectangular</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="L" id="forma-l" />
-                <Label htmlFor="forma-l" className="cursor-pointer">En L</Label>
-              </div>
-            </RadioGroup>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: "rectangular", label: "Rectangular", icon: <Layers className="w-4 h-4" /> },
+                { value: "L", label: "En L", icon: <LayoutGrid className="w-4 h-4" /> },
+                { value: "multi-rect", label: "Multi-Rect", icon: <Combine className="w-4 h-4" /> },
+                { value: "poligono", label: "Forma Libre", icon: <PenTool className="w-4 h-4" /> },
+              ].map((opt) => (
+                <Button
+                  key={opt.value}
+                  variant={forma === opt.value ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => { setForma(opt.value as FormaArea); setResult(null); }}
+                  className="flex items-center gap-1.5 h-10"
+                >
+                  {opt.icon}
+                  {opt.label}
+                </Button>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
@@ -122,7 +169,7 @@ const Index = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {forma === "rectangular" ? (
+            {forma === "rectangular" && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="ancho">Ancho (m)</Label>
@@ -133,8 +180,15 @@ const Index = () => {
                   <Input id="largo" type="number" step="0.01" min="0" placeholder="Ej: 6.0" value={largo} onChange={(e) => setLargo(e.target.value)} />
                 </div>
               </div>
-            ) : (
+            )}
+            {forma === "L" && (
               <LShapeEditor config={lShapeConfig} onChange={setLShapeConfig} />
+            )}
+            {forma === "multi-rect" && (
+              <MultiRectEditor rects={subRects} onChange={setSubRects} />
+            )}
+            {forma === "poligono" && (
+              <PolygonEditor vertices={polyVertices} onChange={setPolyVertices} />
             )}
           </CardContent>
         </Card>
@@ -203,35 +257,37 @@ const Index = () => {
           </CardContent>
         </Card>
 
-        {/* Cover */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Cover Perimetral</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Label className="text-sm text-muted-foreground">
-              {forma === "L" ? "Seleccioná los bordes que llevan cover" : "Seleccioná los lados que llevan cover"}
-            </Label>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={cover.ancho1} onChange={() => toggleCover("ancho1")} className="w-4 h-4 accent-primary rounded" />
-                <span className="text-sm">{forma === "L" ? "Borde superior" : "Ancho 1"}</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={cover.ancho2} onChange={() => toggleCover("ancho2")} className="w-4 h-4 accent-primary rounded" />
-                <span className="text-sm">{forma === "L" ? "Borde inferior" : "Ancho 2"}</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={cover.largo1} onChange={() => toggleCover("largo1")} className="w-4 h-4 accent-primary rounded" />
-                <span className="text-sm">{forma === "L" ? "Borde izquierdo" : "Largo 1"}</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={cover.largo2} onChange={() => toggleCover("largo2")} className="w-4 h-4 accent-primary rounded" />
-                <span className="text-sm">{forma === "L" ? "Borde derecho" : "Largo 2"}</span>
-              </label>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Cover - only for rect and L */}
+        {(forma === "rectangular" || forma === "L") && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Cover Perimetral</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Label className="text-sm text-muted-foreground">
+                {forma === "L" ? "Seleccioná los bordes que llevan cover" : "Seleccioná los lados que llevan cover"}
+              </Label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={cover.ancho1} onChange={() => toggleCover("ancho1")} className="w-4 h-4 accent-primary rounded" />
+                  <span className="text-sm">{forma === "L" ? "Borde superior" : "Ancho 1"}</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={cover.ancho2} onChange={() => toggleCover("ancho2")} className="w-4 h-4 accent-primary rounded" />
+                  <span className="text-sm">{forma === "L" ? "Borde inferior" : "Ancho 2"}</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={cover.largo1} onChange={() => toggleCover("largo1")} className="w-4 h-4 accent-primary rounded" />
+                  <span className="text-sm">{forma === "L" ? "Borde izquierdo" : "Largo 1"}</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={cover.largo2} onChange={() => toggleCover("largo2")} className="w-4 h-4 accent-primary rounded" />
+                  <span className="text-sm">{forma === "L" ? "Borde derecho" : "Largo 2"}</span>
+                </label>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Button onClick={handleCalculate} disabled={!isValid} className="w-full h-12 text-base font-semibold" size="lg">
           <Calculator className="w-5 h-5 mr-2" />
@@ -284,14 +340,17 @@ const Index = () => {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Plano de Planta</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <FloorPlanSVG result={result} ancho={displayAncho} largo={displayLargo} cover={cover} />
-              </CardContent>
-            </Card>
+            {/* Floor plan only for rect/L (multi-rect and polygon use bounding box) */}
+            {(forma === "rectangular" || forma === "L") && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Plano de Planta</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <FloorPlanSVG result={result} ancho={displayAncho} largo={displayLargo} cover={cover} />
+                </CardContent>
+              </Card>
+            )}
 
             <Button onClick={handleExport} variant="outline" className="w-full h-12 text-base font-semibold border-primary text-primary hover:bg-accent">
               <Download className="w-5 h-5 mr-2" />
