@@ -88,11 +88,27 @@ const StructureSchema = ({ largo, ancho, dir, boardLen, result, shape, lShape, s
     return lines;
   }, [result.boardJoints, dir, scale, dw, dh, ox, oy]);
 
-  // Pilotine positions
+  // Pilotine positions: one under each beam, max 40cm spacing, shared at double-beam joints
   const pilotines = useMemo(() => {
-    const pts: { cx: number; cy: number }[] = [];
+    const pts: { cx: number; cy: number; isDouble: boolean }[] = [];
     const spacingM = result.sepVigas / 100;
+    const MAX_PIL_SPACING = 0.40;
 
+    // Helper: generate pilotine positions along a beam
+    const addPilotines = (beamPos: number, beamLen: number, isHoriz: boolean, isDouble: boolean) => {
+      const count = Math.max(2, Math.ceil(beamLen / MAX_PIL_SPACING) + 1);
+      const sp = beamLen / (count - 1);
+      for (let j = 0; j < count; j++) {
+        const along = j * sp;
+        if (isHoriz) {
+          pts.push({ cx: ox + along * scale, cy: oy + beamPos * scale, isDouble });
+        } else {
+          pts.push({ cx: ox + beamPos * scale, cy: oy + along * scale, isDouble });
+        }
+      }
+    };
+
+    // Regular beams
     for (let i = 0; i < result.cantVigas; i++) {
       const beamPos = i * spacingM;
       let beamLen = dir === "horizontal" ? effAncho : effLargo;
@@ -102,22 +118,20 @@ const StructureSchema = ({ largo, ancho, dir, boardLen, result, shape, lShape, s
         if (dir === "vertical" && beamPos > lShape.anchoBrazo) beamLen = lShape.largoBrazo;
       }
 
-      // Skip beams outside the area
       const beamPx = dir === "horizontal" ? oy + beamPos * scale : ox + beamPos * scale;
       const limit = dir === "horizontal" ? oy + dh : ox + dw;
       if (beamPx > limit + 0.5) continue;
 
-      const count = Math.max(2, Math.ceil(beamLen / 0.80) + 1);
-      const sp = beamLen / (count - 1);
-      for (let j = 0; j < count; j++) {
-        const along = j * sp;
-        if (dir === "horizontal") {
-          pts.push({ cx: ox + along * scale, cy: oy + beamPos * scale });
-        } else {
-          pts.push({ cx: ox + beamPos * scale, cy: oy + along * scale });
-        }
-      }
+      addPilotines(beamPos, beamLen, dir === "horizontal", false);
     }
+
+    // Shared pilotines at double-beam joints (perpendicular beams)
+    result.boardJoints.forEach((jointPos) => {
+      const beamLen = dir === "horizontal" ? effLargo : effAncho;
+      // Double beams run perpendicular to regular beams
+      addPilotines(jointPos, beamLen, dir !== "horizontal", true);
+    });
+
     return pts;
   }, [result, dir, scale, ox, oy, dw, dh, effAncho, effLargo, shape, lShape]);
 
@@ -141,7 +155,10 @@ const StructureSchema = ({ largo, ancho, dir, boardLen, result, shape, lShape, s
       <g clipPath={`url(#${clipId})`}>
         {/* Pilotines */}
         {pilotines.map((p, i) => (
-          <circle key={`pil-${i}`} cx={p.cx} cy={p.cy} r={4} fill="hsl(220 60% 55%)" stroke="hsl(220 60% 35%)" strokeWidth={1} opacity={0.7} />
+          <circle key={`pil-${i}`} cx={p.cx} cy={p.cy} r={p.isDouble ? 5 : 4}
+            fill={p.isDouble ? "hsl(30 90% 50%)" : "hsl(220 60% 55%)"}
+            stroke={p.isDouble ? "hsl(30 70% 35%)" : "hsl(220 60% 35%)"}
+            strokeWidth={1} opacity={0.7} />
         ))}
 
         {/* Regular beams */}

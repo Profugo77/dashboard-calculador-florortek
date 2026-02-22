@@ -29,8 +29,17 @@ export interface AvzCalcResult {
   doubleBeamCount: number;
 }
 
-/* ─── Optimization: 35–40 cm beam spacing ─── */
+/* ─── Max overhang (voladizo) for boards ─── */
+const MAX_VOLADIZO = 0.10; // 10 cm max board overhang past last beam
+const MAX_PILOTINE_SPACING = 0.40; // 40 cm max between pilotines along a beam
+
+/* ─── Optimization: 35–40 cm beam spacing, with ≤10cm voladizo ─── */
 export function optimizeBeamSpacing(dist: number): { count: number; spacing: number } {
+  // Beams at 0 and dist (edges), inner beams spaced 35-40 cm
+  // With voladizo: first beam can be up to 10cm from edge, last beam up to 10cm from other edge
+  // This means the "beam span" can be dist - 2*voladizo at minimum
+  // But for simplicity and structural safety, we place beams at 0 and dist (no overhang)
+  // and optimize inner spacing between 35-40cm
   const nMax = Math.ceil(dist / 0.35);
   const spacingMax = dist / nMax;
   const nLess = nMax - 1;
@@ -41,6 +50,12 @@ export function optimizeBeamSpacing(dist: number): { count: number; spacing: num
     }
   }
   return { count: nMax + 1, spacing: spacingMax };
+}
+
+/* ─── Calculate pilotines for a beam, max 40cm spacing ─── */
+export function pilotinesForBeam(beamLength: number): number {
+  if (beamLength <= 0) return 0;
+  return Math.max(2, Math.ceil(beamLength / MAX_PILOTINE_SPACING) + 1);
 }
 
 /* ─── Rectangle calculation ─── */
@@ -79,9 +94,16 @@ export function calculateRect(
   const rawClips = cantVigas * filasTablas;
   const clips = Math.ceil(rawClips * 1.10);
 
-  // Pilotines: ~80cm along each beam
-  const pilotinesPerBeam = Math.max(2, Math.ceil(beamLength / 0.80) + 1);
-  const pilotines = cantVigas * pilotinesPerBeam;
+  // Pilotines: max 40cm spacing along each beam
+  // At double beam joints, pilotines are shared (not doubled)
+  const pilotinesPerBeam = pilotinesForBeam(beamLength);
+  // Regular beams get their own pilotines; double beams at joints share pilotines
+  const regularBeamCount = cantVigas;
+  const sharedJointPilotines = boardJoints.length > 0
+    ? boardJoints.length * pilotinesForBeam(beamRunDim <= 0 ? beamLength : beamLength)
+    : 0;
+  // Total: each regular beam gets pilotines, double beams share (count once not twice)
+  const pilotines = regularBeamCount * pilotinesPerBeam + sharedJointPilotines;
 
   return {
     m2Netos: Math.round(m2Netos * 100) / 100,
@@ -145,8 +167,18 @@ export function calculateLShape(
   const rawClips = cantVigas * filasTablas;
   const clips = Math.ceil(rawClips * 1.10 * (m2Netos / (largo * ancho)));
 
-  const pilotinesPerBeam = Math.max(2, Math.ceil(beamLength / 0.80) + 1);
-  const pilotines = Math.ceil(cantVigas * pilotinesPerBeam * (m2Netos / (largo * ancho)));
+  // Pilotines: max 40cm along each beam, shared at double-beam joints
+  let totalPilotines = 0;
+  for (let i = 0; i < cantVigas; i++) {
+    const pos = i * (sepVigas / 100);
+    let len = beamLength;
+    if (dir === "horizontal" && pos > ls.largoBrazo) len = ls.anchoBrazo;
+    if (dir === "vertical" && pos > ls.anchoBrazo) len = ls.largoBrazo;
+    totalPilotines += pilotinesForBeam(len);
+  }
+  // Add shared pilotines for double beams at joints
+  totalPilotines += boardJoints.length * pilotinesForBeam(beamLength);
+  const pilotines = totalPilotines;
 
   return {
     m2Netos: Math.round(m2Netos * 100) / 100,
