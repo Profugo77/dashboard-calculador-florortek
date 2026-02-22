@@ -16,8 +16,8 @@ interface FloorPlanSVGProps {
 }
 
 const COVER_COLOR = "hsl(25 100% 55%)";
-const BOARD_WIDTH = 0.145; // 14.5cm
-const BOARD_GAP = 0.005; // 5mm
+const BOARD_WIDTH = 0.145;
+const BOARD_GAP = 0.005;
 const BOARD_PITCH = BOARD_WIDTH + BOARD_GAP;
 const BOARD_COLOR = "hsl(30 40% 65%)";
 const BOARD_STROKE = "hsl(0 0% 10%)";
@@ -99,7 +99,6 @@ const FloorPlanSVG = ({ result, ancho, largo, cover, polyBlocks }: FloorPlanSVGP
   const lShape = result.lShape;
   const isPoly = !!polyBlocks && polyBlocks.length > 0;
 
-  // Bounding box offset for poly blocks
   const blockMinX = isPoly ? Math.min(...polyBlocks!.map(b => b.x)) : 0;
   const blockMinY = isPoly ? Math.min(...polyBlocks!.map(b => b.y)) : 0;
 
@@ -118,41 +117,24 @@ const FloorPlanSVG = ({ result, ancho, largo, cover, polyBlocks }: FloorPlanSVGP
   const coverOffset = coverStroke / 2;
   const clipId = "area-clip-" + Math.random().toString(36).slice(2, 8);
 
-  // Tube endpoint helper for rect/L modes
   const getTubeEndpoints = (pos: number) => {
     if (result.tubeDirection === "vertical") {
       const x = ox + pos * scale;
       let tubeH = dh;
-      if (isL && pos > lShape!.anchoBrazo + 0.001) tubeH = lShape!.largoBrazo * scale;
+      if (isL && !isPoly && pos > lShape!.anchoBrazo + 0.001) tubeH = lShape!.largoBrazo * scale;
       return { x1: x, y1: oy, x2: x, y2: oy + tubeH };
     } else {
       const y = oy + pos * scale;
       let tubeW = dw;
-      if (isL && pos > lShape!.largoBrazo + 0.001) tubeW = lShape!.anchoBrazo * scale;
+      if (isL && !isPoly && pos > lShape!.largoBrazo + 0.001) tubeW = lShape!.anchoBrazo * scale;
       return { x1: ox, y1: y, x2: ox + tubeW, y2: y };
     }
   };
 
-  // For poly mode: compute tube positions across bounding box
-  const polyTubePositions: number[] = [];
-  let polyPilSpacing = 0.5;
-  if (isPoly) {
-    const spacingDim = result.tubeDirection === "vertical" ? ancho : largo;
-    const maxSpacing = 0.37;
-    const n = Math.max(1, Math.ceil(spacingDim / maxSpacing));
-    const sp = spacingDim / n;
-    for (let i = 0; i <= n; i++) polyTubePositions.push(i * sp);
-
-    const perpDim = result.tubeDirection === "vertical" ? largo : ancho;
-    const maxPilSp = result.separacionPilotines > 0 ? result.separacionPilotines / 100 : 0.5;
-    const nPil = Math.max(1, Math.ceil(perpDim / maxPilSp));
-    polyPilSpacing = perpDim / nPil;
-  }
-
   const boardDirection: "horizontal" | "vertical" = result.tubeDirection === "vertical" ? "horizontal" : "vertical";
   const boardRects = generateBoardRects(ancho, largo, result.boardLength, boardDirection, result.estiloColocacion, isPoly ? "rectangular" : result.forma, lShape);
 
-  // Helpers for rendering block shapes
+  // Block shape helpers
   const renderBlocksFill = (fill: string, stroke: string, sw: number) =>
     polyBlocks!.map((b, i) => (
       <rect key={i}
@@ -174,31 +156,74 @@ const FloorPlanSVG = ({ result, ancho, largo, cover, polyBlocks }: FloorPlanSVGP
       />
     ));
 
-  // Render structure tubes/pilotines for poly mode (clipped to blocks)
-  const renderPolyStructure = () => (
-    <g clipPath={`url(#${clipId})`}>
-      {polyTubePositions.map((pos, i) => {
-        if (result.tubeDirection === "vertical") {
-          return <line key={`t-${i}`} x1={ox + pos * scale} y1={oy} x2={ox + pos * scale} y2={oy + dh}
-            stroke="hsl(200 10% 35%)" strokeWidth={1.5} strokeDasharray="6 3" />;
-        } else {
-          return <line key={`t-${i}`} x1={ox} y1={oy + pos * scale} x2={ox + dw} y2={oy + pos * scale}
-            stroke="hsl(200 10% 35%)" strokeWidth={1.5} strokeDasharray="6 3" />;
+  // Shared tube/pilotin rendering (works for all modes, clipped for poly)
+  const renderStructure = () => (
+    <g clipPath={isPoly ? `url(#${clipId})` : undefined}>
+      {/* Single tubes */}
+      {result.tubePositions.filter(t => !t.isDouble).map((tube, i) => {
+        const ep = getTubeEndpoints(tube.position);
+        return <line key={`tube-s-${i}`} x1={ep.x1} y1={ep.y1} x2={ep.x2} y2={ep.y2}
+          stroke="hsl(200 10% 35%)" strokeWidth={1.5} strokeDasharray="6 3" />;
+      })}
+      {/* Double tubes */}
+      {(() => {
+        const doubles = result.tubePositions.filter(t => t.isDouble);
+        const pairs: [typeof doubles[0], typeof doubles[0]][] = [];
+        for (let i = 0; i < doubles.length; i += 2) {
+          if (doubles[i + 1]) pairs.push([doubles[i], doubles[i + 1]]);
         }
-      })}
-      {polyTubePositions.flatMap((tubePos, ti) => {
-        const perpDim = result.tubeDirection === "vertical" ? largo : ancho;
-        const nPil = Math.max(1, Math.ceil(perpDim / polyPilSpacing));
-        const sp = perpDim / nPil;
-        return Array.from({ length: nPil + 1 }, (_, j) => {
-          const pilPos = j * sp;
-          const cx = result.tubeDirection === "vertical" ? ox + tubePos * scale : ox + pilPos * scale;
-          const cy = result.tubeDirection === "vertical" ? oy + pilPos * scale : oy + tubePos * scale;
-          return <circle key={`p-${ti}-${j}`} cx={cx} cy={cy} r={3} fill="hsl(170 100% 26%)" />;
+        return pairs.map((pair, i) => {
+          const ep1 = getTubeEndpoints(pair[0].position);
+          const ep2 = getTubeEndpoints(pair[1].position);
+          return (
+            <g key={`tube-d-${i}`}>
+              <line x1={ep1.x1} y1={ep1.y1} x2={ep1.x2} y2={ep1.y2} stroke="hsl(30 90% 50%)" strokeWidth={2.5} strokeLinecap="round" />
+              <line x1={ep2.x1} y1={ep2.y1} x2={ep2.x2} y2={ep2.y2} stroke="hsl(30 90% 50%)" strokeWidth={2.5} strokeLinecap="round" />
+            </g>
+          );
         });
-      })}
+      })()}
+      {/* Pilotines */}
+      {result.pilotinPositions.map((pos, i) => (
+        <circle key={`pil-${i}`} cx={ox + pos.x * scale} cy={oy + pos.y * scale} r={3} fill="hsl(170 100% 26%)" />
+      ))}
     </g>
   );
+
+  // Shape background/outline renderer
+  const renderShapeBg = (fill: string, stroke: string, sw: number) => {
+    if (isPoly) return renderBlocksFill(fill, stroke, sw);
+    if (isL) return <polygon points={lPoints} fill={fill} stroke={stroke} strokeWidth={sw} />;
+    return <rect x={ox} y={oy} width={dw} height={dh} fill={fill} stroke={stroke} strokeWidth={sw} rx={4} />;
+  };
+
+  const renderClipDef = (id: string) => (
+    <clipPath id={id}>
+      {isPoly ? renderBlocksClipPath()
+        : isL ? <polygon points={lPoints} />
+        : <rect x={ox} y={oy} width={dw} height={dh} rx={4} />}
+    </clipPath>
+  );
+
+  const renderCover = () => {
+    if (isPoly) return null; // No cover for free-form yet
+    if (isL) return (
+      <>
+        {cover?.ancho1 && <line x1={ox - coverOffset} y1={oy} x2={ox + dw + coverOffset} y2={oy} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
+        {cover?.ancho2 && <line x1={ox - coverOffset} y1={oy + dh} x2={ox + lShape!.anchoBrazo * scale + coverOffset} y2={oy + dh} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
+        {cover?.largo1 && <line x1={ox} y1={oy - coverOffset} x2={ox} y2={oy + dh + coverOffset} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
+        {cover?.largo2 && <line x1={ox + dw} y1={oy - coverOffset} x2={ox + dw} y2={oy + lShape!.largoBrazo * scale + coverOffset} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
+      </>
+    );
+    return (
+      <>
+        {cover?.ancho1 && <line x1={ox - coverOffset} y1={oy} x2={ox + dw + coverOffset} y2={oy} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
+        {cover?.ancho2 && <line x1={ox - coverOffset} y1={oy + dh} x2={ox + dw + coverOffset} y2={oy + dh} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
+        {cover?.largo1 && <line x1={ox} y1={oy - coverOffset} x2={ox} y2={oy + dh + coverOffset} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
+        {cover?.largo2 && <line x1={ox + dw} y1={oy - coverOffset} x2={ox + dw} y2={oy + dh + coverOffset} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
+      </>
+    );
+  };
 
   return (
     <div className="w-full overflow-x-auto space-y-6">
@@ -206,68 +231,10 @@ const FloorPlanSVG = ({ result, ancho, largo, cover, polyBlocks }: FloorPlanSVGP
       <div>
         <h4 className="text-sm font-semibold text-foreground mb-2 text-center">Esquema de Estructura</h4>
         <svg viewBox={`0 0 ${svgW} ${svgH}`} className="mx-auto max-w-full" style={{ maxHeight: 380 }}>
-          <defs>
-            <clipPath id={clipId}>
-              {isPoly ? renderBlocksClipPath()
-                : isL ? <polygon points={lPoints} />
-                : <rect x={ox} y={oy} width={dw} height={dh} />}
-            </clipPath>
-          </defs>
-
-          {/* Background shape */}
-          {isPoly ? renderBlocksFill("hsl(170 60% 90%)", "hsl(170 100% 26%)", 2)
-            : isL ? <polygon points={lPoints} fill="hsl(170 60% 90%)" stroke="hsl(170 100% 26%)" strokeWidth={2} />
-            : <rect x={ox} y={oy} width={dw} height={dh} fill="hsl(170 60% 90%)" stroke="hsl(170 100% 26%)" strokeWidth={2} rx={4} />}
-
-          {/* Tubes & pilotines */}
-          {isPoly ? renderPolyStructure() : (
-            <>
-              {result.tubePositions.filter(t => !t.isDouble).map((tube, i) => {
-                const ep = getTubeEndpoints(tube.position);
-                return <line key={`tube-s-${i}`} x1={ep.x1} y1={ep.y1} x2={ep.x2} y2={ep.y2}
-                  stroke="hsl(200 10% 35%)" strokeWidth={1.5} strokeDasharray="6 3" />;
-              })}
-              {(() => {
-                const doubles = result.tubePositions.filter(t => t.isDouble);
-                const pairs: [typeof doubles[0], typeof doubles[0]][] = [];
-                for (let i = 0; i < doubles.length; i += 2) {
-                  if (doubles[i + 1]) pairs.push([doubles[i], doubles[i + 1]]);
-                }
-                return pairs.map((pair, i) => {
-                  const ep1 = getTubeEndpoints(pair[0].position);
-                  const ep2 = getTubeEndpoints(pair[1].position);
-                  return (
-                    <g key={`tube-d-${i}`}>
-                      <line x1={ep1.x1} y1={ep1.y1} x2={ep1.x2} y2={ep1.y2} stroke="hsl(30 90% 50%)" strokeWidth={2.5} strokeLinecap="round" />
-                      <line x1={ep2.x1} y1={ep2.y1} x2={ep2.x2} y2={ep2.y2} stroke="hsl(30 90% 50%)" strokeWidth={2.5} strokeLinecap="round" />
-                    </g>
-                  );
-                });
-              })()}
-              {result.pilotinPositions.map((pos, i) => (
-                <circle key={`pil-${i}`} cx={ox + pos.x * scale} cy={oy + pos.y * scale} r={3} fill="hsl(170 100% 26%)" />
-              ))}
-            </>
-          )}
-
-          {/* Cover (rect/L only) */}
-          {!isPoly && isL && (
-            <>
-              {cover?.ancho1 && <line x1={ox - coverOffset} y1={oy} x2={ox + dw + coverOffset} y2={oy} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
-              {cover?.ancho2 && <line x1={ox - coverOffset} y1={oy + dh} x2={ox + lShape!.anchoBrazo * scale + coverOffset} y2={oy + dh} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
-              {cover?.largo1 && <line x1={ox} y1={oy - coverOffset} x2={ox} y2={oy + dh + coverOffset} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
-              {cover?.largo2 && <line x1={ox + dw} y1={oy - coverOffset} x2={ox + dw} y2={oy + lShape!.largoBrazo * scale + coverOffset} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
-            </>
-          )}
-          {!isPoly && !isL && (
-            <>
-              {cover?.ancho1 && <line x1={ox - coverOffset} y1={oy} x2={ox + dw + coverOffset} y2={oy} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
-              {cover?.ancho2 && <line x1={ox - coverOffset} y1={oy + dh} x2={ox + dw + coverOffset} y2={oy + dh} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
-              {cover?.largo1 && <line x1={ox} y1={oy - coverOffset} x2={ox} y2={oy + dh + coverOffset} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
-              {cover?.largo2 && <line x1={ox + dw} y1={oy - coverOffset} x2={ox + dw} y2={oy + dh + coverOffset} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
-            </>
-          )}
-
+          <defs>{renderClipDef(clipId)}</defs>
+          {renderShapeBg("hsl(170 60% 90%)", "hsl(170 100% 26%)", 2)}
+          {renderStructure()}
+          {renderCover()}
           <text x={ox + dw / 2} y={oy - 12} textAnchor="middle" fontSize={12} fontWeight={600} fill="hsl(200 10% 30%)">{ancho} m</text>
           <text x={ox - 12} y={oy + dh / 2} textAnchor="middle" fontSize={12} fontWeight={600} fill="hsl(200 10% 30%)" transform={`rotate(-90, ${ox - 12}, ${oy + dh / 2})`}>{largo} m</text>
         </svg>
@@ -277,12 +244,10 @@ const FloorPlanSVG = ({ result, ancho, largo, cover, polyBlocks }: FloorPlanSVGP
             <span className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: "hsl(200 10% 35%)" }} />
             Tubos
           </span>
-          {!isPoly && (
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block w-5 border-t-[3px]" style={{ borderColor: "hsl(30 90% 50%)" }} />
-              Doble viga
-            </span>
-          )}
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-5 border-t-[3px]" style={{ borderColor: "hsl(30 90% 50%)" }} />
+            Doble viga
+          </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: "hsl(170 100% 26%)" }} />
             Pilotines
@@ -302,20 +267,8 @@ const FloorPlanSVG = ({ result, ancho, largo, cover, polyBlocks }: FloorPlanSVGP
           Diseño de Tablas — {result.estiloColocacion === "panos" ? "Por Paños" : "Trabado (½ tabla)"}
         </h4>
         <svg viewBox={`0 0 ${svgW} ${svgH}`} className="mx-auto max-w-full" style={{ maxHeight: 380 }}>
-          <defs>
-            <clipPath id={clipId + "-boards"}>
-              {isPoly ? renderBlocksClipPath()
-                : isL ? <polygon points={lPoints} />
-                : <rect x={ox} y={oy} width={dw} height={dh} rx={4} />}
-            </clipPath>
-          </defs>
-
-          {/* Background */}
-          {isPoly ? renderBlocksFill("hsl(30 15% 30%)", "hsl(170 100% 26%)", 2)
-            : isL ? <polygon points={lPoints} fill="hsl(30 15% 30%)" stroke="hsl(170 100% 26%)" strokeWidth={2} />
-            : <rect x={ox} y={oy} width={dw} height={dh} fill="hsl(30 15% 30%)" stroke="hsl(170 100% 26%)" strokeWidth={2} rx={4} />}
-
-          {/* Boards clipped to area */}
+          <defs>{renderClipDef(clipId + "-boards")}</defs>
+          {renderShapeBg("hsl(30 15% 30%)", "hsl(170 100% 26%)", 2)}
           <g clipPath={`url(#${clipId}-boards)`}>
             {boardRects.map((b, i) => (
               <rect key={`board-${i}`}
@@ -325,30 +278,8 @@ const FloorPlanSVG = ({ result, ancho, largo, cover, polyBlocks }: FloorPlanSVGP
               />
             ))}
           </g>
-
-          {/* Outline on top */}
-          {isPoly ? renderBlocksFill("none", "hsl(170 100% 26%)", 2)
-            : isL ? <polygon points={lPoints} fill="none" stroke="hsl(170 100% 26%)" strokeWidth={2} />
-            : <rect x={ox} y={oy} width={dw} height={dh} fill="none" stroke="hsl(170 100% 26%)" strokeWidth={2} rx={4} />}
-
-          {/* Cover on deck (rect/L only) */}
-          {!isPoly && isL && (
-            <>
-              {cover?.ancho1 && <line x1={ox - coverOffset} y1={oy} x2={ox + dw + coverOffset} y2={oy} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
-              {cover?.ancho2 && <line x1={ox - coverOffset} y1={oy + dh} x2={ox + lShape!.anchoBrazo * scale + coverOffset} y2={oy + dh} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
-              {cover?.largo1 && <line x1={ox} y1={oy - coverOffset} x2={ox} y2={oy + dh + coverOffset} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
-              {cover?.largo2 && <line x1={ox + dw} y1={oy - coverOffset} x2={ox + dw} y2={oy + lShape!.largoBrazo * scale + coverOffset} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
-            </>
-          )}
-          {!isPoly && !isL && (
-            <>
-              {cover?.ancho1 && <line x1={ox - coverOffset} y1={oy} x2={ox + dw + coverOffset} y2={oy} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
-              {cover?.ancho2 && <line x1={ox - coverOffset} y1={oy + dh} x2={ox + dw + coverOffset} y2={oy + dh} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
-              {cover?.largo1 && <line x1={ox} y1={oy - coverOffset} x2={ox} y2={oy + dh + coverOffset} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
-              {cover?.largo2 && <line x1={ox + dw} y1={oy - coverOffset} x2={ox + dw} y2={oy + dh + coverOffset} stroke={COVER_COLOR} strokeWidth={coverStroke} strokeLinecap="round" />}
-            </>
-          )}
-
+          {renderShapeBg("none", "hsl(170 100% 26%)", 2)}
+          {renderCover()}
           <text x={ox + dw / 2} y={oy - 12} textAnchor="middle" fontSize={12} fontWeight={600} fill="hsl(200 10% 30%)">{ancho} m</text>
           <text x={ox - 12} y={oy + dh / 2} textAnchor="middle" fontSize={12} fontWeight={600} fill="hsl(200 10% 30%)" transform={`rotate(-90, ${ox - 12}, ${oy + dh / 2})`}>{largo} m</text>
         </svg>
