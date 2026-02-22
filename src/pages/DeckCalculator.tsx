@@ -119,8 +119,25 @@ const Index = () => {
     );
   };
 
-  const displayAncho = forma === "rectangular" ? parseFloat(ancho) || 0 : forma === "L" ? lShapeConfig.anchoTotal : 0;
-  const displayLargo = forma === "rectangular" ? parseFloat(largo) || 0 : forma === "L" ? lShapeConfig.largoTotal : 0;
+  // Compute display dimensions for all form types
+  const getDisplayDims = (): { ancho: number; largo: number } => {
+    if (forma === "rectangular") return { ancho: parseFloat(ancho) || 0, largo: parseFloat(largo) || 0 };
+    if (forma === "L") return { ancho: lShapeConfig.anchoTotal, largo: lShapeConfig.largoTotal };
+    if (forma === "multi-rect") {
+      // Use first valid rect's dims for the floor plan
+      const first = subRects.find(r => r.ancho > 0 && r.largo > 0);
+      return first ? { ancho: first.ancho, largo: first.largo } : { ancho: 0, largo: 0 };
+    }
+    if (forma === "poligono" && polyVertices.length > 1) {
+      const xs = polyVertices.map(v => v.x);
+      const ys = polyVertices.map(v => v.y);
+      return { ancho: Math.max(...xs) - Math.min(...xs), largo: Math.max(...ys) - Math.min(...ys) };
+    }
+    return { ancho: 0, largo: 0 };
+  };
+  const dims = getDisplayDims();
+  const displayAncho = dims.ancho;
+  const displayLargo = dims.largo;
 
   return (
     <div className="min-h-screen bg-background">
@@ -348,8 +365,8 @@ const Index = () => {
               </CardContent>
             </Card>
 
-            {/* Floor plan only for rect/L (multi-rect and polygon use bounding box) */}
-            {(forma === "rectangular" || forma === "L") && (
+            {/* Floor plan for all form types */}
+            {displayAncho > 0 && displayLargo > 0 && (
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg">Plano de Planta</CardTitle>
