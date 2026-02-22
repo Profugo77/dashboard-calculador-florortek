@@ -69,8 +69,7 @@ export function calculateRect(
   // Beams: spaced along beamRunDim, each beam spans beamLength
   const beamRunDim = dir === "horizontal" ? largo : ancho;
   const beamLength = dir === "horizontal" ? ancho : largo;
-  const { count: cantVigas, spacing: sepVigas } = optimizeBeamSpacing(beamRunDim);
-  const vigasMl = Math.ceil(cantVigas * beamLength * 100) / 100;
+  const { count: cantVigasRaw, spacing: sepVigas } = optimizeBeamSpacing(beamRunDim);
 
   // Board rows
   const stackDim = dir === "horizontal" ? largo : ancho;
@@ -81,33 +80,36 @@ export function calculateRect(
   const piecesPerRow = Math.ceil(boardDim / boardLen);
   const tablasUn = filasTablas * piecesPerRow;
 
-  // Board joints (where boards meet end-to-end)
-  // Filter out joints that would place a double beam too close (<15cm) to a regular beam
-  const spacingM = sepVigas / 100;
-  const regularBeamPositions = Array.from({ length: cantVigas }, (_, i) => Math.round(i * spacingM * 100) / 100);
+  // Board joints are MANDATORY — double beams go here
+  // Regular beams that are too close (<20cm) to a joint get removed instead
   const boardJoints: number[] = [];
   for (let p = boardLen; p < boardDim - 0.05; p += boardLen) {
-    const pos = Math.round(p * 100) / 100;
-    const tooClose = regularBeamPositions.some(bp => Math.abs(bp - pos) > 0 && Math.abs(bp - pos) < MIN_BEAM_DISTANCE);
-    if (!tooClose) {
-      boardJoints.push(pos);
-    }
+    boardJoints.push(Math.round(p * 100) / 100);
   }
 
+  // Filter regular beam count: remove beams too close to joints
+  const spacingM = sepVigas / 100;
+  const regularBeamPositions = Array.from({ length: cantVigasRaw }, (_, i) => Math.round(i * spacingM * 100) / 100);
+  const filteredRegularBeams = regularBeamPositions.filter(bp =>
+    !boardJoints.some(jp => Math.abs(bp - jp) > 0 && Math.abs(bp - jp) < MIN_BEAM_DISTANCE)
+  );
+  const cantVigas = filteredRegularBeams.length;
+
+  // Total beams = filtered regular + 2 per joint (double)
+  const totalBeams = cantVigas + boardJoints.length * 2;
+  const vigasMl = Math.ceil(totalBeams * beamLength * 100) / 100;
+
   // Clips: 1 per beam×row intersection + 10%
-  const rawClips = cantVigas * filasTablas;
+  const rawClips = totalBeams * filasTablas;
   const clips = Math.ceil(rawClips * 1.10);
 
   // Pilotines: max 40cm spacing along each beam
-  // At double beam joints, pilotines are shared (not doubled)
   const pilotinesPerBeam = pilotinesForBeam(beamLength);
-  // Regular beams get their own pilotines; double beams at joints share pilotines
-  const regularBeamCount = cantVigas;
+  // Regular beams get pilotines; double beams at joints share pilotines (count once)
   const sharedJointPilotines = boardJoints.length > 0
-    ? boardJoints.length * pilotinesForBeam(beamRunDim <= 0 ? beamLength : beamLength)
+    ? boardJoints.length * pilotinesForBeam(beamLength)
     : 0;
-  // Total: each regular beam gets pilotines, double beams share (count once not twice)
-  const pilotines = regularBeamCount * pilotinesPerBeam + sharedJointPilotines;
+  const pilotines = cantVigas * pilotinesPerBeam + sharedJointPilotines;
 
   return {
     m2Netos: Math.round(m2Netos * 100) / 100,
