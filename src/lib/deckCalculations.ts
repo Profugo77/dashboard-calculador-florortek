@@ -52,6 +52,7 @@ export interface DeckInput {
 export interface DeckResult {
   superficieReal: number;
   superficieConDesperdicio: number;
+  cantidadTablas: number;
   metrosLinealesAluminio: number;
   cantidadTubos: number;
   pilotines: number;
@@ -176,9 +177,11 @@ export function calculateDeckMultiRect(input: DeckInput): DeckResult {
   const results = rects.map((r) =>
     calculateDeck({ ...input, forma: "rectangular", ancho: r.ancho, largo: r.largo, subRects: undefined })
   );
+  const totalSupConDesp = Math.ceil(results.reduce((s, r) => s + r.superficieConDesperdicio, 0) * 100) / 100;
   return {
     superficieReal: results.reduce((s, r) => s + r.superficieReal, 0),
-    superficieConDesperdicio: Math.ceil(results.reduce((s, r) => s + r.superficieConDesperdicio, 0) * 100) / 100,
+    superficieConDesperdicio: totalSupConDesp,
+    cantidadTablas: Math.ceil(totalSupConDesp / (parseFloat(input.medidaTabla) * 0.15)),
     metrosLinealesAluminio: Math.ceil(results.reduce((s, r) => s + r.metrosLinealesAluminio, 0) * 100) / 100,
     cantidadTubos: results.reduce((s, r) => s + r.cantidadTubos, 0),
     pilotines: results.reduce((s, r) => s + r.pilotines, 0),
@@ -303,9 +306,11 @@ function calculateDeckPolygon(input: DeckInput): DeckResult {
   const numPilRef = Math.ceil(refDim / maxPilotinSpacing);
   const typicalPilSpacing = refDim / numPilRef;
 
+  const supConDesp = Math.ceil(superficieConDesperdicio * 100) / 100;
   return {
     superficieReal,
-    superficieConDesperdicio: Math.ceil(superficieConDesperdicio * 100) / 100,
+    superficieConDesperdicio: supConDesp,
+    cantidadTablas: Math.ceil(supConDesp / (boardLength * 0.15)),
     metrosLinealesAluminio,
     cantidadTubos: tubePositions.length,
     pilotines: totalPilotines,
@@ -432,9 +437,11 @@ export function calculateDeck(input: DeckInput): DeckResult {
   const numPilRef = Math.ceil(refTubeLen / maxPilotinSpacing);
   const typicalPilSpacing = refTubeLen / numPilRef;
 
+  const supConDesp2 = Math.ceil(superficieConDesperdicio * 100) / 100;
   return {
     superficieReal,
-    superficieConDesperdicio: Math.ceil(superficieConDesperdicio * 100) / 100,
+    superficieConDesperdicio: supConDesp2,
+    cantidadTablas: Math.ceil(supConDesp2 / (boardLength * 0.15)),
     metrosLinealesAluminio,
     cantidadTubos,
     pilotines: totalPilotines,
