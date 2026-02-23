@@ -20,6 +20,7 @@ import {
   Info,
   RotateCw,
 } from "lucide-react";
+import PergolaSchema from "@/components/PergolaSchema";
 
 // ─── Types & Constants ───────────────────────────────────────────
 interface Perfil {
@@ -34,6 +35,7 @@ const PERFILES: Perfil[] = [
 ];
 
 type Diseno = "equilibrado" | "liviano";
+type Sentido = "horizontal" | "vertical";
 
 const LARGO_STOCK = 2.9; // metros
 
@@ -51,13 +53,19 @@ function calcPergola(
   salidaM: number,
   perfil: Perfil,
   diseno: Diseno,
+  sentido: Sentido,
   precioUnitario: number | null
 ): PergolaResult {
   const vistaM = perfil.vistaMm / 1000;
   const separacion = diseno === "equilibrado" ? vistaM : vistaM * 1.2;
   const modulo = vistaM + separacion;
-  const lineas = Math.ceil(anchoM / modulo);
-  const piezasPorLinea = salidaM <= LARGO_STOCK ? 1 : 2;
+
+  // stackDim = across which lines are distributed; runDim = along which profiles run
+  const stackDim = sentido === "horizontal" ? anchoM : salidaM;
+  const runDim = sentido === "horizontal" ? salidaM : anchoM;
+
+  const lineas = Math.ceil(stackDim / modulo);
+  const piezasPorLinea = runDim <= LARGO_STOCK ? 1 : 2;
   const totalPerfiles = lineas * piezasPorLinea;
   const metrosLineales = +(totalPerfiles * LARGO_STOCK).toFixed(2);
   const precioTotal =
@@ -74,6 +82,7 @@ const PergolaCalculator = () => {
   const [salidaStr, setSalidaStr] = useState("");
   const [perfilIdx, setPerfilIdx] = useState("0");
   const [diseno, setDiseno] = useState<Diseno>("equilibrado");
+  const [sentido, setSentido] = useState<Sentido>("horizontal");
   const [tieneApoyo, setTieneApoyo] = useState(false);
   const [distApoyoStr, setDistApoyoStr] = useState("");
   const [precioStr, setPrecioStr] = useState("");
@@ -93,7 +102,7 @@ const PergolaCalculator = () => {
 
   const handleCalc = () => {
     if (anchoM <= 0 || salidaM <= 0) return;
-    setResult(calcPergola(anchoM, salidaM, perfil, diseno, precioUnitario));
+    setResult(calcPergola(anchoM, salidaM, perfil, diseno, sentido, precioUnitario));
   };
 
   const handleReset = () => {
@@ -101,6 +110,7 @@ const PergolaCalculator = () => {
     setSalidaStr("");
     setPerfilIdx("0");
     setDiseno("equilibrado");
+    setSentido("horizontal");
     setTieneApoyo(false);
     setDistApoyoStr("");
     setPrecioStr("");
@@ -197,6 +207,19 @@ const PergolaCalculator = () => {
                 </Select>
               </div>
             </div>
+
+            <div>
+                <Label className="text-xs">Sentido de colocación</Label>
+                <Select value={sentido} onValueChange={(v) => setSentido(v as Sentido)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="horizontal">↕ Pared → Frente (salida)</SelectItem>
+                    <SelectItem value="vertical">↔ Lado a lado (ancho)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
             <div className="flex items-center justify-between border rounded-md p-3">
               <Label className="text-xs">¿Tiene apoyo intermedio?</Label>
@@ -337,6 +360,23 @@ const PergolaCalculator = () => {
                   </div>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Schema */}
+        {result && anchoM > 0 && salidaM > 0 && (
+          <Card>
+            <CardContent className="pt-5">
+              <PergolaSchema
+                anchoM={anchoM}
+                salidaM={salidaM}
+                vistaMm={perfil.vistaMm}
+                lineas={result.lineas}
+                piezasPorLinea={result.piezasPorLinea}
+                sentido={sentido}
+                tieneApoyo={tieneApoyo}
+              />
             </CardContent>
           </Card>
         )}
