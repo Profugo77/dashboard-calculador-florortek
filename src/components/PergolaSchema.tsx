@@ -127,13 +127,24 @@ const PergolaSchema = ({
   const distApoyoM = distApoyoCm > 0 ? distApoyoCm / 100 : 0;
   const apoyoRunDim = sentido === "horizontal" ? salidaM : anchoM;
   const apoyoPositions: number[] = [];
+
+  // Always add a support at the splice point (2.9m) when there are 2 pieces
+  if (piezasPorLinea > 1) {
+    apoyoPositions.push(STOCK);
+  }
+
+  // Add user-defined intermediate supports
   if (tieneApoyo && distApoyoM > 0) {
     let pos = distApoyoM;
     while (pos < apoyoRunDim - 0.01) {
-      apoyoPositions.push(pos);
+      // Avoid duplicating the splice position
+      if (!(piezasPorLinea > 1 && Math.abs(pos - STOCK) < 0.01)) {
+        apoyoPositions.push(pos);
+      }
       pos += distApoyoM;
     }
   }
+  apoyoPositions.sort((a, b) => a - b);
 
   return (
     <div className="w-full overflow-x-auto">
