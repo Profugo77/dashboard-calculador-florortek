@@ -110,9 +110,11 @@ const Index = () => {
     if (forma === "rectangular") return { ancho: parseFloat(ancho) || 0, largo: parseFloat(largo) || 0 };
     if (forma === "L") return { ancho: lShapeConfig.anchoTotal, largo: lShapeConfig.largoTotal };
     if (forma === "multi-rect") {
-      // Use first valid rect's dims for the floor plan
-      const first = subRects.find(r => r.ancho > 0 && r.largo > 0);
-      return first ? { ancho: first.ancho, largo: first.largo } : { ancho: 0, largo: 0 };
+      const validRects = subRects.filter(r => r.ancho > 0 && r.largo > 0);
+      if (validRects.length === 0) return { ancho: 0, largo: 0 };
+      const totalW = Math.max(...validRects.map(r => r.ancho));
+      const totalH = validRects.reduce((s, r) => s + r.largo, 0);
+      return { ancho: totalW, largo: totalH };
     }
     if (forma === "poligono" && polyBlocks.length > 0) {
       const xs = polyBlocks.flatMap(b => [b.x, b.x + b.w]);
@@ -362,7 +364,18 @@ const Index = () => {
                   <CardTitle className="text-lg">Plano de Planta</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <FloorPlanSVG result={result} ancho={displayAncho} largo={displayLargo} cover={cover} polyBlocks={forma === "poligono" ? polyBlocks : undefined} />
+                  <FloorPlanSVG result={result} ancho={displayAncho} largo={displayLargo} cover={cover} polyBlocks={
+                    forma === "poligono" ? polyBlocks :
+                    forma === "multi-rect" ? (() => {
+                      const validRects = subRects.filter(r => r.ancho > 0 && r.largo > 0);
+                      let yOff = 0;
+                      return validRects.map(r => {
+                        const block = { x: 0, y: yOff, w: r.ancho, h: r.largo };
+                        yOff += r.largo;
+                        return block;
+                      });
+                    })() : undefined
+                  } />
                 </CardContent>
               </Card>
             )}
