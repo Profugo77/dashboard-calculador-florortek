@@ -35,7 +35,7 @@ const PergolaSchema = ({
   const runDim = sentido === "horizontal" ? salidaM : anchoM; // dimension along which profiles run
 
   const scale = Math.min(maxDraw / anchoM, maxDraw / salidaM);
-  const svgW = anchoM * scale + padding * 2;
+  const svgW = anchoM * scale + padding * 2 + (tieneApoyo && sentido === "horizontal" ? 50 : 0);
   const svgH = salidaM * scale + padding * 2;
   const ox = padding;
   const oy = padding;
@@ -160,32 +160,31 @@ const PergolaSchema = ({
           />
         ))}
 
-        {/* Apoyo intermedio lines */}
-        {tieneApoyo && apoyoPositions.map((pos, i) => (
-          sentido === "horizontal" ? (
-            <line
-              key={`apoyo-${i}`}
-              x1={ox}
-              y1={oy + pos * scale}
-              x2={ox + dw}
-              y2={oy + pos * scale}
-              stroke={APOYO_COLOR}
-              strokeWidth={2.5}
-              strokeDasharray="8 4"
-            />
-          ) : (
-            <line
-              key={`apoyo-${i}`}
-              x1={ox + pos * scale}
-              y1={oy}
-              x2={ox + pos * scale}
-              y2={oy + dh}
-              stroke={APOYO_COLOR}
-              strokeWidth={2.5}
-              strokeDasharray="8 4"
-            />
-          )
-        ))}
+        {/* Apoyo intermedio — thick beam rectangles */}
+        {tieneApoyo && apoyoPositions.map((pos, i) => {
+          const beamThick = 5;
+          if (sentido === "horizontal") {
+            const by = oy + pos * scale - beamThick / 2;
+            return (
+              <g key={`apoyo-${i}`}>
+                <rect x={ox - 4} y={by} width={dw + 8} height={beamThick} fill={APOYO_COLOR} rx={1.5} opacity={0.85} />
+                <text x={ox + dw + 10} y={by + beamThick / 2 + 4} fontSize={9} fill={APOYO_COLOR} fontWeight={600}>
+                  {(pos * 100).toFixed(0)} cm
+                </text>
+              </g>
+            );
+          } else {
+            const bx = ox + pos * scale - beamThick / 2;
+            return (
+              <g key={`apoyo-${i}`}>
+                <rect x={bx} y={oy - 4} width={beamThick} height={dh + 8} fill={APOYO_COLOR} rx={1.5} opacity={0.85} />
+                <text x={bx + beamThick / 2} y={oy + dh + 14} fontSize={9} fill={APOYO_COLOR} fontWeight={600} textAnchor="middle">
+                  {(pos * 100).toFixed(0)} cm
+                </text>
+              </g>
+            );
+          }
+        })}
 
         {/* Dimension labels */}
         <text x={ox + dw / 2} y={oy - 12} textAnchor="middle" fontSize={12} fontWeight={600} fill="hsl(200 10% 30%)">
@@ -211,18 +210,16 @@ const PergolaSchema = ({
           Perfil {vistaMm}mm
         </span>
         {piezasPorLinea > 1 && (
-          <>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block w-5 h-3 rounded-sm" style={{ background: EMPALME_COLOR }} />
-              Empalme
-            </span>
-            {tieneApoyo && (
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block w-5 border-t-[3px] border-dashed" style={{ borderColor: APOYO_COLOR }} />
-                Apoyo intermedio
-              </span>
-            )}
-          </>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-5 h-3 rounded-sm" style={{ background: EMPALME_COLOR }} />
+            Empalme
+          </span>
+        )}
+        {tieneApoyo && apoyoPositions.length > 0 && (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-5 h-[5px] rounded-sm" style={{ background: APOYO_COLOR }} />
+            Apoyo intermedio
+          </span>
         )}
       </div>
     </div>
