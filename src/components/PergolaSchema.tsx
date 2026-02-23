@@ -4,8 +4,9 @@ interface PergolaSchemaProps {
   vistaMm: number;
   lineas: number;
   piezasPorLinea: number;
-  sentido: "horizontal" | "vertical"; // horizontal = perfiles van de pared a frente; vertical = perfiles van de lado a lado
+  sentido: "horizontal" | "vertical";
   tieneApoyo: boolean;
+  distApoyoCm: number;
 }
 
 const STOCK = 2.9; // m
@@ -22,6 +23,7 @@ const PergolaSchema = ({
   piezasPorLinea,
   sentido,
   tieneApoyo,
+  distApoyoCm,
 }: PergolaSchemaProps) => {
   const padding = 44;
   const maxDraw = 340;
@@ -121,8 +123,17 @@ const PergolaSchema = ({
     }
   }
 
-  // Apoyo intermedio line position
-  const apoyoPos = STOCK; // at 2.9m
+  // Generate apoyo positions based on distApoyoCm
+  const distApoyoM = distApoyoCm > 0 ? distApoyoCm / 100 : 0;
+  const apoyoRunDim = sentido === "horizontal" ? salidaM : anchoM;
+  const apoyoPositions: number[] = [];
+  if (tieneApoyo && distApoyoM > 0) {
+    let pos = distApoyoM;
+    while (pos < apoyoRunDim - 0.01) {
+      apoyoPositions.push(pos);
+      pos += distApoyoM;
+    }
+  }
 
   return (
     <div className="w-full overflow-x-auto">
@@ -149,30 +160,32 @@ const PergolaSchema = ({
           />
         ))}
 
-        {/* Apoyo intermedio line */}
-        {tieneApoyo && piezasPorLinea > 1 && (
+        {/* Apoyo intermedio lines */}
+        {tieneApoyo && apoyoPositions.map((pos, i) => (
           sentido === "horizontal" ? (
             <line
+              key={`apoyo-${i}`}
               x1={ox}
-              y1={oy + apoyoPos * scale}
+              y1={oy + pos * scale}
               x2={ox + dw}
-              y2={oy + apoyoPos * scale}
+              y2={oy + pos * scale}
               stroke={APOYO_COLOR}
               strokeWidth={2.5}
               strokeDasharray="8 4"
             />
           ) : (
             <line
-              x1={ox + apoyoPos * scale}
+              key={`apoyo-${i}`}
+              x1={ox + pos * scale}
               y1={oy}
-              x2={ox + apoyoPos * scale}
+              x2={ox + pos * scale}
               y2={oy + dh}
               stroke={APOYO_COLOR}
               strokeWidth={2.5}
               strokeDasharray="8 4"
             />
           )
-        )}
+        ))}
 
         {/* Dimension labels */}
         <text x={ox + dw / 2} y={oy - 12} textAnchor="middle" fontSize={12} fontWeight={600} fill="hsl(200 10% 30%)">
