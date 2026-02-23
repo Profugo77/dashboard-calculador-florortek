@@ -376,6 +376,7 @@ const PergolaCalculator = () => {
                 piezasPorLinea={result.piezasPorLinea}
                 sentido={sentido}
                 tieneApoyo={tieneApoyo}
+                distApoyoCm={distApoyoCm}
               />
             </CardContent>
           </Card>
