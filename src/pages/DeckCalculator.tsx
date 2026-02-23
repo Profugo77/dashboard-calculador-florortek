@@ -325,6 +325,10 @@ const Index = () => {
                       <TableCell className="text-right font-semibold">{result.superficieConDesperdicio.toFixed(2)} m²</TableCell>
                     </TableRow>
                     <TableRow>
+                      <TableCell>Cantidad de tablas ({result.boardLength} m × 15 cm)</TableCell>
+                      <TableCell className="text-right font-semibold">{result.cantidadTablas} unidades</TableCell>
+                    </TableRow>
+                    <TableRow>
                       <TableCell>Estructura aluminio</TableCell>
                       <TableCell className="text-right font-semibold">{result.metrosLinealesAluminio.toFixed(2)} ml</TableCell>
                     </TableRow>
