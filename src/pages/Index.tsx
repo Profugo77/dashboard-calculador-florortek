@@ -94,7 +94,7 @@ const cotizadores: Cotizador[] = [
     description: "Estructuras de pérgolas y parasoles",
     icon: Fence,
     route: "/pergolas",
-    active: false,
+    active: true,
   },
 ];
 
