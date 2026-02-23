@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ interface Block {
   attachTo?: string;       // id of parent block
   attachSide?: "arriba" | "abajo" | "izquierda" | "derecha";
   alignOffset: number;     // offset along the attachment edge (in meters)
+  manualX?: number;        // manual position override (set by drag)
+  manualY?: number;
 }
 
 export interface ComputedBlock {
@@ -37,10 +39,15 @@ function computeBlockPositions(blocks: Block[]): ComputedBlock[] {
   if (blocks.length === 0) return [];
   const computed: ComputedBlock[] = [];
   const first = blocks[0];
-  computed.push({ id: first.id, x: 0, y: 0, w: first.ancho, h: first.largo });
+  computed.push({ id: first.id, x: first.manualX ?? 0, y: first.manualY ?? 0, w: first.ancho, h: first.largo });
 
   for (let i = 1; i < blocks.length; i++) {
     const b = blocks[i];
+    // If manually positioned, use that
+    if (b.manualX !== undefined && b.manualY !== undefined) {
+      computed.push({ id: b.id, x: b.manualX, y: b.manualY, w: b.ancho, h: b.largo });
+      continue;
+    }
     if (!b.attachTo || !b.attachSide) continue;
     const parent = computed.find((c) => c.id === b.attachTo);
     if (!parent) continue;
@@ -170,6 +177,15 @@ const PolygonEditor = ({ vertices, onChange, onBlocksChange }: PolygonEditorProp
     updateAndNotify(blocks.map((b) => (b.id === id ? { ...b, ...updates } : b)));
   };
 
+  const moveBlock = useCallback((id: string, dx: number, dy: number) => {
+    const comp = computeBlockPositions(blocks);
+    const current = comp.find(c => c.id === id);
+    if (!current) return;
+    const newX = Math.round((current.x + dx) * 10) / 10;
+    const newY = Math.round((current.y + dy) * 10) / 10;
+    updateAndNotify(blocks.map(b => b.id === id ? { ...b, manualX: newX, manualY: newY } : b));
+  }, [blocks]);
+
   const resetAll = () => {
     const newBlocks = [{ id: crypto.randomUUID(), ancho: 0, largo: 0, alignOffset: 0 }];
     setBlocks(newBlocks);
@@ -281,12 +297,15 @@ const PolygonEditor = ({ vertices, onChange, onBlocksChange }: PolygonEditorProp
       )}
 
       {/* Preview */}
-      {validBlocks.length > 0 && <BlockPreview blocks={validBlocks} />}
+      {validBlocks.length > 0 && <BlockPreview blocks={validBlocks} onMoveBlock={moveBlock} />}
     </div>
   );
 };
 
-const BlockPreview = ({ blocks }: { blocks: ComputedBlock[] }) => {
+const BlockPreview = ({ blocks, onMoveBlock }: { blocks: ComputedBlock[]; onMoveBlock?: (id: string, dx: number, dy: number) => void }) => {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [dragging, setDragging] = useState<{ id: string; startX: number; startY: number } | null>(null);
+
   const bbox = computeBoundingBox(blocks);
   const rangeX = bbox.maxX - bbox.minX || 1;
   const rangeY = bbox.maxY - bbox.minY || 1;
@@ -304,21 +323,67 @@ const BlockPreview = ({ blocks }: { blocks: ComputedBlock[] }) => {
     "hsl(340 50% 85%)",
   ];
 
+  const getSvgPoint = useCallback((e: React.MouseEvent) => {
+    const svg = svgRef.current;
+    if (!svg) return { x: 0, y: 0 };
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return { x: 0, y: 0 };
+    const svgPt = pt.matrixTransform(ctm.inverse());
+    return { x: svgPt.x, y: svgPt.y };
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent, blockId: string) => {
+    if (!onMoveBlock) return;
+    e.preventDefault();
+    const pt = getSvgPoint(e);
+    setDragging({ id: blockId, startX: pt.x, startY: pt.y });
+  }, [onMoveBlock, getSvgPoint]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!dragging || !onMoveBlock) return;
+    const pt = getSvgPoint(e);
+    const dx = (pt.x - dragging.startX) / scale;
+    const dy = (pt.y - dragging.startY) / scale;
+    if (Math.abs(dx) > 0.05 || Math.abs(dy) > 0.05) {
+      // Snap to 0.1m grid
+      const snapDx = Math.round(dx * 10) / 10;
+      const snapDy = Math.round(dy * 10) / 10;
+      if (snapDx !== 0 || snapDy !== 0) {
+        onMoveBlock(dragging.id, snapDx, snapDy);
+        setDragging({ ...dragging, startX: dragging.startX + snapDx * scale, startY: dragging.startY + snapDy * scale });
+      }
+    }
+  }, [dragging, onMoveBlock, getSvgPoint, scale]);
+
+  const handleMouseUp = useCallback(() => {
+    setDragging(null);
+  }, []);
+
   return (
-    <svg viewBox={`0 0 ${svgW} ${svgH}`} className="mx-auto max-w-full" style={{ maxHeight: 280 }}>
+    <svg
+      ref={svgRef}
+      viewBox={`0 0 ${svgW} ${svgH}`}
+      className="mx-auto max-w-full"
+      style={{ maxHeight: 280, cursor: onMoveBlock ? "default" : undefined }}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+    >
       {blocks.map((b, i) => {
         const rx = padding + (b.x - bbox.minX) * scale;
         const ry = padding + (b.y - bbox.minY) * scale;
         const rw = b.w * scale;
         const rh = b.h * scale;
         return (
-          <g key={b.id}>
+          <g key={b.id} style={{ cursor: onMoveBlock ? "grab" : undefined }} onMouseDown={(e) => handleMouseDown(e, b.id)}>
             <rect
               x={rx} y={ry} width={rw} height={rh}
               fill={COLORS[i % COLORS.length]}
-              stroke="hsl(170 100% 26%)" strokeWidth={1.5} rx={2}
+              stroke={dragging?.id === b.id ? "hsl(200 100% 50%)" : "hsl(170 100% 26%)"} strokeWidth={dragging?.id === b.id ? 2.5 : 1.5} rx={2}
             />
-            {/* Dimensions */}
             <text x={rx + rw / 2} y={ry - 6} textAnchor="middle" fontSize={9} fontWeight={600} fill="hsl(200 15% 35%)">
               {b.w} m
             </text>
@@ -329,13 +394,17 @@ const BlockPreview = ({ blocks }: { blocks: ComputedBlock[] }) => {
             >
               {b.h} m
             </text>
-            {/* Block number */}
             <text x={rx + rw / 2} y={ry + rh / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill="hsl(170 100% 26%)">
               {i + 1}
             </text>
           </g>
         );
       })}
+      {onMoveBlock && (
+        <text x={svgW / 2} y={svgH - 6} textAnchor="middle" fontSize={8} fill="hsl(200 15% 55%)">
+          Arrastrá los bloques para moverlos
+        </text>
+      )}
     </svg>
   );
 };

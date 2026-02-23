@@ -358,24 +358,24 @@ const Index = () => {
             </Card>
 
             {/* Floor plan for all form types */}
-            {displayAncho > 0 && displayLargo > 0 && (
+            {forma === "multi-rect" && result ? (
+              subRects.filter(r => r.ancho > 0 && r.largo > 0).map((rect, idx) => (
+                <Card key={rect.id}>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Plano de Planta — Rectángulo {idx + 1} ({rect.ancho}×{rect.largo} m)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <FloorPlanSVG result={{...result, forma: "rectangular"}} ancho={rect.ancho} largo={rect.largo} cover={cover} />
+                  </CardContent>
+                </Card>
+              ))
+            ) : displayAncho > 0 && displayLargo > 0 && (
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg">Plano de Planta</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <FloorPlanSVG result={result} ancho={displayAncho} largo={displayLargo} cover={cover} polyBlocks={
-                    forma === "poligono" ? polyBlocks :
-                    forma === "multi-rect" ? (() => {
-                      const validRects = subRects.filter(r => r.ancho > 0 && r.largo > 0);
-                      let yOff = 0;
-                      return validRects.map(r => {
-                        const block = { x: 0, y: yOff, w: r.ancho, h: r.largo };
-                        yOff += r.largo;
-                        return block;
-                      });
-                    })() : undefined
-                  } />
+                  <FloorPlanSVG result={result} ancho={displayAncho} largo={displayLargo} cover={cover} polyBlocks={forma === "poligono" ? polyBlocks : undefined} />
                 </CardContent>
               </Card>
             )}
