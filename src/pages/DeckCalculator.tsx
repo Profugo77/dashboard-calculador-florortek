@@ -359,16 +359,29 @@ const Index = () => {
 
             {/* Floor plan for all form types */}
             {forma === "multi-rect" && result ? (
-              subRects.filter(r => r.ancho > 0 && r.largo > 0).map((rect, idx) => (
-                <Card key={rect.id}>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">Plano de Planta — Rectángulo {idx + 1} ({rect.ancho}×{rect.largo} m)</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <FloorPlanSVG result={{...result, forma: "rectangular"}} ancho={rect.ancho} largo={rect.largo} cover={cover} />
-                  </CardContent>
-                </Card>
-              ))
+              subRects.filter(r => r.ancho > 0 && r.largo > 0).map((rect, idx) => {
+                const mappedSentido = sentido === "ancho" ? "horizontal" : "vertical";
+                const perRectResult = calculateDeck({
+                  forma: "rectangular",
+                  ancho: rect.ancho,
+                  largo: rect.largo,
+                  medidaTabla,
+                  sentido: mappedSentido as "horizontal" | "vertical",
+                  altura,
+                  estiloColocacion,
+                  coverPerimetral: cover,
+                });
+                return (
+                  <Card key={rect.id}>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Plano de Planta — Rectángulo {idx + 1} ({rect.ancho}×{rect.largo} m)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <FloorPlanSVG result={perRectResult} ancho={rect.ancho} largo={rect.largo} cover={cover} />
+                    </CardContent>
+                  </Card>
+                );
+              })
             ) : displayAncho > 0 && displayLargo > 0 && (
               <Card>
                 <CardHeader className="pb-3">
