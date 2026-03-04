@@ -198,7 +198,7 @@ const JardinesVerticalesCalculator = () => {
           </Button>
           <div>
             <h1 className="text-xl font-bold tracking-tight">Cotizador de Jardines Verticales</h1>
-            <p className="text-xs text-primary-foreground/60">Módulos de 50 × 50 cm</p>
+            <p className="text-xs text-primary-foreground/60">Módulos de {moduleSize * 100} × {moduleSize * 100} cm</p>
           </div>
         </div>
       </header>
