@@ -5,6 +5,7 @@ import {
   Grid3x3,
   Footprints,
   Fence,
+  Leaf,
   PanelsTopLeft,
   Building2,
   Paintbrush,
