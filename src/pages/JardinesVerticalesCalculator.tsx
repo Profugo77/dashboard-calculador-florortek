@@ -122,6 +122,7 @@ const templates: Template[] = [
 /* ── Component ── */
 const JardinesVerticalesCalculator = () => {
   const navigate = useNavigate();
+  const [moduleSize, setModuleSize] = useState<ModuleSize>(0.5);
   const [anchoM, setAnchoM] = useState(2);
   const [altoM, setAltoM] = useState(2);
   const [mode, setMode] = useState<Mode>("rectangular");
@@ -130,8 +131,8 @@ const JardinesVerticalesCalculator = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragValue, setDragValue] = useState(true);
 
-  const cols = Math.max(1, Math.ceil(anchoM / MODULE_SIZE));
-  const rows = Math.max(1, Math.ceil(altoM / MODULE_SIZE));
+  const cols = Math.max(1, Math.ceil(anchoM / moduleSize));
+  const rows = Math.max(1, Math.ceil(altoM / moduleSize));
 
   /* grid for current mode */
   const grid = useMemo(() => {
