@@ -207,16 +207,33 @@ const JardinesVerticalesCalculator = () => {
         {/* Dimensions */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Dimensiones de la pared</CardTitle>
+            <CardTitle className="text-lg">Dimensiones y módulo</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
+          <CardContent className="space-y-4">
             <div>
-              <Label>Ancho (m)</Label>
-              <Input type="number" min={0.5} step={0.5} value={anchoM} onChange={(e) => setAnchoM(Math.max(0.5, +e.target.value))} />
+              <Label>Tamaño del módulo</Label>
+              <div className="flex gap-2 mt-1">
+                {([0.5, 1] as ModuleSize[]).map((s) => (
+                  <Button
+                    key={s}
+                    variant={moduleSize === s ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => { setModuleSize(s); setFreeGrid(null); }}
+                  >
+                    {s * 100} × {s * 100} cm
+                  </Button>
+                ))}
+              </div>
             </div>
-            <div>
-              <Label>Alto (m)</Label>
-              <Input type="number" min={0.5} step={0.5} value={altoM} onChange={(e) => setAltoM(Math.max(0.5, +e.target.value))} />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Ancho (m)</Label>
+                <Input type="number" min={0.5} step={0.5} value={anchoM} onChange={(e) => setAnchoM(Math.max(0.5, +e.target.value))} />
+              </div>
+              <div>
+                <Label>Alto (m)</Label>
+                <Input type="number" min={0.5} step={0.5} value={altoM} onChange={(e) => setAltoM(Math.max(0.5, +e.target.value))} />
+              </div>
             </div>
           </CardContent>
         </Card>
