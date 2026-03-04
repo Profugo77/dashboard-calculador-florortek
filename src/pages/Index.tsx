@@ -96,6 +96,14 @@ const cotizadores: Cotizador[] = [
     route: "/pergolas",
     active: true,
   },
+  {
+    id: "jardines-verticales",
+    title: "Jardines Verticales",
+    description: "Módulos 50×50 cm con diseños artísticos",
+    icon: Leaf,
+    route: "/jardines-verticales",
+    active: true,
+  },
 ];
 
 const Index = () => {
