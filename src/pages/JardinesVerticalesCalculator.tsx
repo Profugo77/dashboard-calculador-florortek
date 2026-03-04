@@ -6,8 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Leaf } from "lucide-react";
 
-const MODULE_SIZE = 0.5; // 50 cm
-
+type ModuleSize = 0.5 | 1;
 type Mode = "rectangular" | "plantilla" | "libre";
 
 interface Template {
@@ -123,6 +122,7 @@ const templates: Template[] = [
 /* ── Component ── */
 const JardinesVerticalesCalculator = () => {
   const navigate = useNavigate();
+  const [moduleSize, setModuleSize] = useState<ModuleSize>(0.5);
   const [anchoM, setAnchoM] = useState(2);
   const [altoM, setAltoM] = useState(2);
   const [mode, setMode] = useState<Mode>("rectangular");
@@ -131,8 +131,8 @@ const JardinesVerticalesCalculator = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragValue, setDragValue] = useState(true);
 
-  const cols = Math.max(1, Math.ceil(anchoM / MODULE_SIZE));
-  const rows = Math.max(1, Math.ceil(altoM / MODULE_SIZE));
+  const cols = Math.max(1, Math.ceil(anchoM / moduleSize));
+  const rows = Math.max(1, Math.ceil(altoM / moduleSize));
 
   /* grid for current mode */
   const grid = useMemo(() => {
@@ -198,7 +198,7 @@ const JardinesVerticalesCalculator = () => {
           </Button>
           <div>
             <h1 className="text-xl font-bold tracking-tight">Cotizador de Jardines Verticales</h1>
-            <p className="text-xs text-primary-foreground/60">Módulos de 50 × 50 cm</p>
+            <p className="text-xs text-primary-foreground/60">Módulos de {moduleSize * 100} × {moduleSize * 100} cm</p>
           </div>
         </div>
       </header>
@@ -207,16 +207,33 @@ const JardinesVerticalesCalculator = () => {
         {/* Dimensions */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Dimensiones de la pared</CardTitle>
+            <CardTitle className="text-lg">Dimensiones y módulo</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
+          <CardContent className="space-y-4">
             <div>
-              <Label>Ancho (m)</Label>
-              <Input type="number" min={0.5} step={0.5} value={anchoM} onChange={(e) => setAnchoM(Math.max(0.5, +e.target.value))} />
+              <Label>Tamaño del módulo</Label>
+              <div className="flex gap-2 mt-1">
+                {([0.5, 1] as ModuleSize[]).map((s) => (
+                  <Button
+                    key={s}
+                    variant={moduleSize === s ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => { setModuleSize(s); setFreeGrid(null); }}
+                  >
+                    {s * 100} × {s * 100} cm
+                  </Button>
+                ))}
+              </div>
             </div>
-            <div>
-              <Label>Alto (m)</Label>
-              <Input type="number" min={0.5} step={0.5} value={altoM} onChange={(e) => setAltoM(Math.max(0.5, +e.target.value))} />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Ancho (m)</Label>
+                <Input type="number" min={0.5} step={0.5} value={anchoM} onChange={(e) => setAnchoM(Math.max(0.5, +e.target.value))} />
+              </div>
+              <div>
+                <Label>Alto (m)</Label>
+                <Input type="number" min={0.5} step={0.5} value={altoM} onChange={(e) => setAltoM(Math.max(0.5, +e.target.value))} />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -318,8 +335,8 @@ const JardinesVerticalesCalculator = () => {
 
             {/* Dimension labels */}
             <div className="flex justify-center gap-6 mt-3 text-xs text-muted-foreground font-medium">
-              <span>↔ {(cols * MODULE_SIZE).toFixed(1)} m ({cols} col)</span>
-              <span>↕ {(rows * MODULE_SIZE).toFixed(1)} m ({rows} fil)</span>
+              <span>↔ {(cols * moduleSize).toFixed(1)} m ({cols} col)</span>
+              <span>↕ {(rows * moduleSize).toFixed(1)} m ({rows} fil)</span>
             </div>
           </CardContent>
         </Card>
@@ -333,10 +350,10 @@ const JardinesVerticalesCalculator = () => {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
               <div className="rounded-lg bg-primary/10 p-3">
                 <div className="text-2xl font-bold text-primary">{moduleCount}</div>
-                <div className="text-xs text-muted-foreground">Módulos 50×50</div>
+                <div className="text-xs text-muted-foreground">Módulos {moduleSize * 100}×{moduleSize * 100}</div>
               </div>
               <div className="rounded-lg bg-muted p-3">
-                <div className="text-2xl font-bold text-foreground">{(moduleCount * MODULE_SIZE * MODULE_SIZE).toFixed(2)}</div>
+                <div className="text-2xl font-bold text-foreground">{(moduleCount * moduleSize * moduleSize).toFixed(2)}</div>
                 <div className="text-xs text-muted-foreground">m² cubiertos</div>
               </div>
               <div className="rounded-lg bg-muted p-3">
