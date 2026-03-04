@@ -6,8 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Leaf } from "lucide-react";
 
-const MODULE_SIZE = 0.5; // 50 cm
-
+type ModuleSize = 0.5 | 1;
 type Mode = "rectangular" | "plantilla" | "libre";
 
 interface Template {
