@@ -350,7 +350,7 @@ const JardinesVerticalesCalculator = () => {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
               <div className="rounded-lg bg-primary/10 p-3">
                 <div className="text-2xl font-bold text-primary">{moduleCount}</div>
-                <div className="text-xs text-muted-foreground">Módulos 50×50</div>
+                <div className="text-xs text-muted-foreground">Módulos {moduleSize * 100}×{moduleSize * 100}</div>
               </div>
               <div className="rounded-lg bg-muted p-3">
                 <div className="text-2xl font-bold text-foreground">{(moduleCount * moduleSize * moduleSize).toFixed(2)}</div>
