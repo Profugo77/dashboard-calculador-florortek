@@ -15,6 +15,7 @@ import EscalerasCalculator from "./pages/EscalerasCalculator";
 import DecopanelCalculator from "./pages/DecopanelCalculator";
 import DeckAvanzado from "./pages/DeckAvanzado";
 import PergolaCalculator from "./pages/PergolaCalculator";
+import JardinesVerticalesCalculator from "./pages/JardinesVerticalesCalculator";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
           <Route path="/decopanel" element={<DecopanelCalculator />} />
           <Route path="/deck-avanzado" element={<DeckAvanzado />} />
           <Route path="/pergolas" element={<PergolaCalculator />} />
+          <Route path="/jardines-verticales" element={<JardinesVerticalesCalculator />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

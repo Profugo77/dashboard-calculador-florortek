@@ -5,6 +5,7 @@ import {
   Grid3x3,
   Footprints,
   Fence,
+  Leaf,
   PanelsTopLeft,
   Building2,
   Paintbrush,
@@ -94,6 +95,14 @@ const cotizadores: Cotizador[] = [
     description: "Estructuras de pérgolas y parasoles",
     icon: Fence,
     route: "/pergolas",
+    active: true,
+  },
+  {
+    id: "jardines-verticales",
+    title: "Jardines Verticales",
+    description: "Módulos 50×50 cm con diseños artísticos",
+    icon: Leaf,
+    route: "/jardines-verticales",
     active: true,
   },
 ];
