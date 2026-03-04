@@ -318,8 +318,8 @@ const JardinesVerticalesCalculator = () => {
 
             {/* Dimension labels */}
             <div className="flex justify-center gap-6 mt-3 text-xs text-muted-foreground font-medium">
-              <span>↔ {(cols * MODULE_SIZE).toFixed(1)} m ({cols} col)</span>
-              <span>↕ {(rows * MODULE_SIZE).toFixed(1)} m ({rows} fil)</span>
+              <span>↔ {(cols * moduleSize).toFixed(1)} m ({cols} col)</span>
+              <span>↕ {(rows * moduleSize).toFixed(1)} m ({rows} fil)</span>
             </div>
           </CardContent>
         </Card>
