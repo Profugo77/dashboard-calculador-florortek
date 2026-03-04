@@ -336,7 +336,7 @@ const JardinesVerticalesCalculator = () => {
                 <div className="text-xs text-muted-foreground">Módulos 50×50</div>
               </div>
               <div className="rounded-lg bg-muted p-3">
-                <div className="text-2xl font-bold text-foreground">{(moduleCount * MODULE_SIZE * MODULE_SIZE).toFixed(2)}</div>
+                <div className="text-2xl font-bold text-foreground">{(moduleCount * moduleSize * moduleSize).toFixed(2)}</div>
                 <div className="text-xs text-muted-foreground">m² cubiertos</div>
               </div>
               <div className="rounded-lg bg-muted p-3">
