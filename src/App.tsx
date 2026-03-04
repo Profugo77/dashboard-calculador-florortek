@@ -15,6 +15,7 @@ import EscalerasCalculator from "./pages/EscalerasCalculator";
 import DecopanelCalculator from "./pages/DecopanelCalculator";
 import DeckAvanzado from "./pages/DeckAvanzado";
 import PergolaCalculator from "./pages/PergolaCalculator";
+import JardinesVerticalesCalculator from "./pages/JardinesVerticalesCalculator";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
