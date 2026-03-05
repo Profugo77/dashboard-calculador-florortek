@@ -228,11 +228,11 @@ const JardinesVerticalesCalculator = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Ancho (m)</Label>
-                <Input type="number" min={0.5} step={0.5} value={anchoM} onChange={(e) => setAnchoM(Math.max(0.5, +e.target.value))} />
+                <Input type="number" min={0.1} step={0.01} value={anchoM} onChange={(e) => setAnchoM(Math.max(0.1, +e.target.value))} />
               </div>
               <div>
                 <Label>Alto (m)</Label>
-                <Input type="number" min={0.5} step={0.5} value={altoM} onChange={(e) => setAltoM(Math.max(0.5, +e.target.value))} />
+                <Input type="number" min={0.1} step={0.01} value={altoM} onChange={(e) => setAltoM(Math.max(0.1, +e.target.value))} />
               </div>
             </div>
           </CardContent>
