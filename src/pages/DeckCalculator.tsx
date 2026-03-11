@@ -93,11 +93,10 @@ const Index = () => {
 
   const handleExport = () => {
     if (!result) return;
-    const a = forma === "rectangular" ? parseFloat(ancho) : forma === "L" ? lShapeConfig.anchoTotal : 0;
-    const l = forma === "rectangular" ? parseFloat(largo) : forma === "L" ? lShapeConfig.largoTotal : 0;
+    const d = getDisplayDims();
     exportPDF(
       {
-        ancho: a, largo: l, medidaTabla,
+        ancho: d.ancho, largo: d.largo, medidaTabla,
         sentido: sentido === "ancho" ? "A lo ancho" : "A lo largo",
         cover, forma, lShape: forma === "L" ? lShapeConfig : undefined,
       },
