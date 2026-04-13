@@ -338,12 +338,12 @@ const PedraflexCalculator = () => {
             // Dimension label inside each plate
             const wCm = Math.round(p.w * 100);
             const hCm = Math.round(p.h * 100);
-            const label = `${wCm}×${hCm}`;
-            const fontSize = Math.min(6, Math.min(rw / label.length * 1.2, rh / 3));
-            if (fontSize >= 3 && rw > 8 && rh > 5) {
+            const label = `${wCm}x${hCm}`;
+            const fontSize = Math.max(5, Math.min(9, Math.min(rw / label.length * 1.6, rh / 2.2)));
+            if (rw > 6 && rh > 4) {
               doc.setFontSize(fontSize);
-              doc.setTextColor(p.partial ? 180 : 80, p.partial ? 50 : 80, p.partial ? 50 : 80);
-              doc.setFont("helvetica", p.partial ? "bold" : "normal");
+              doc.setTextColor(p.partial ? 180 : 40, p.partial ? 40 : 40, p.partial ? 40 : 40);
+              doc.setFont("helvetica", "bold");
               doc.text(label, rx + rw / 2, ry + rh / 2 + fontSize * 0.15, { align: "center" });
             }
           });
