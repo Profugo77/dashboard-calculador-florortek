@@ -712,18 +712,25 @@ function WallScheme({
               strokeWidth={0.5}
               rx={1}
             />
-            {rw > 25 && rh > 14 && (
-              <text
-                x={rx + rw / 2}
-                y={ry + rh / 2}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fontSize={Math.min(10, rw / 4)}
-                fill="hsl(200, 10%, 35%)"
-              >
-                {p.partial ? "corte" : `P${i + 1}`}
-              </text>
-            )}
+            {rw > 18 && rh > 10 && (() => {
+              const wCm = Math.round(p.w * 100);
+              const hCm = Math.round(p.h * 100);
+              const label = `${wCm}×${hCm}`;
+              const fontSize = Math.min(9, Math.min(rw / label.length * 1.4, rh / 2.5));
+              return fontSize >= 5 ? (
+                <text
+                  x={rx + rw / 2}
+                  y={ry + rh / 2}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontSize={fontSize}
+                  fontWeight={p.partial ? 600 : 400}
+                  fill={p.partial ? "hsl(0, 70%, 45%)" : "hsl(200, 10%, 35%)"}
+                >
+                  {label}
+                </text>
+              ) : null;
+            })()}
           </g>
         );
       })}
