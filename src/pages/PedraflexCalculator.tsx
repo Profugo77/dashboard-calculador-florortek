@@ -248,7 +248,7 @@ const PedraflexCalculator = () => {
     const rows = [
       ["Concepto", "Cantidad"],
       ["Superficie total (m²)", totalArea.toFixed(2)],
-      ["Placas necesarias", String(totalPlates)],
+      ["Placas necesarias", `${totalPlates} (m² + 10% desperdicio)`],
       ["Cartuchos de adhesivo", String(totalAdhesive)],
     ];
 
@@ -303,7 +303,7 @@ const PedraflexCalculator = () => {
           doc.setFontSize(9);
           doc.setFont("helvetica", "normal");
           doc.setTextColor(80, 80, 80);
-          doc.text(`${getModeLabel(layout.mode)} — ${getApproachLabel(layout.approach)} (${layout.plateCount} placas)`, 14, y);
+          doc.text(`${getModeLabel(layout.mode)} — ${getApproachLabel(layout.approach)} (esquema de corte)`, 14, y);
           y += 4;
 
           const ox = 14 + (maxDiagW - dw) / 2;
