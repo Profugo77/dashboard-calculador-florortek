@@ -573,7 +573,7 @@ const PedraflexCalculator = () => {
                 {wallData[i].area > 0 && (
                   <p className="text-xs text-muted-foreground">
                     Superficie: {wallData[i].area.toFixed(2)} m² —{" "}
-                    {getWallPlates(wallData[i])} placas
+                    {getWallPlates(wallData[i])} placas con 10% desperdicio
                   </p>
                 )}
               </div>
@@ -634,10 +634,10 @@ const PedraflexCalculator = () => {
                       </p>
                       <div className="flex gap-3 text-xs">
                         <span className="font-semibold text-primary">
-                          {layout.plateCount} placas
+                          {w.requiredPlates} placas
                         </span>
                         <span className="text-muted-foreground">
-                          {Math.ceil(layout.plateCount * plate.adhesivePer)} adhesivos
+                          esquema de corte
                         </span>
                       </div>
                     </div>
