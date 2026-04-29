@@ -37,6 +37,8 @@ const PLATES = {
   large: { w: 1.22, h: 2.44, label: "1.22 m × 2.44 m", adhesivePer: 2 },
 };
 
+const WASTE_FACTOR = 1.1;
+
 interface PlacedPlate {
   x: number;
   y: number;
@@ -110,6 +112,7 @@ interface WallCalcData extends Wall {
   anchoN: number;
   altoN: number;
   area: number;
+  requiredPlates: number;
   layouts: LayoutVariant[];
 }
 
@@ -174,6 +177,7 @@ const PedraflexCalculator = () => {
     const ancho = parseFloat(w.ancho) || 0;
     const alto = parseFloat(w.alto) || 0;
     const area = ancho * alto;
+    const requiredPlates = area > 0 ? Math.ceil((area * WASTE_FACTOR) / plateArea) : 0;
     const layouts: LayoutVariant[] = [];
     if (ancho > 0 && alto > 0) {
       for (const mode of selectedModes) {
@@ -183,15 +187,10 @@ const PedraflexCalculator = () => {
         }
       }
     }
-    return { ...w, anchoN: ancho, altoN: alto, area, layouts };
+    return { ...w, anchoN: ancho, altoN: alto, area, requiredPlates, layouts };
   });
 
-  // Use the first layout variant's plate count for summary (optimized if available)
-  const getWallPlates = (w: WallCalcData) => {
-    if (w.layouts.length === 0) return 0;
-    const opt = w.layouts.find((l) => l.approach === "optimized");
-    return opt ? opt.plateCount : w.layouts[0].plateCount;
-  };
+  const getWallPlates = (w: WallCalcData) => w.requiredPlates;
 
   const totalArea = wallData.reduce((s, w) => s + w.area, 0);
   const totalPlates = wallData.reduce((s, w) => s + getWallPlates(w), 0);
@@ -249,7 +248,7 @@ const PedraflexCalculator = () => {
     const rows = [
       ["Concepto", "Cantidad"],
       ["Superficie total (m²)", totalArea.toFixed(2)],
-      ["Placas necesarias", String(totalPlates)],
+      ["Placas necesarias", `${totalPlates} (m² + 10% desperdicio)`],
       ["Cartuchos de adhesivo", String(totalAdhesive)],
     ];
 
@@ -304,7 +303,7 @@ const PedraflexCalculator = () => {
           doc.setFontSize(9);
           doc.setFont("helvetica", "normal");
           doc.setTextColor(80, 80, 80);
-          doc.text(`${getModeLabel(layout.mode)} — ${getApproachLabel(layout.approach)} (${layout.plateCount} placas)`, 14, y);
+          doc.text(`${getModeLabel(layout.mode)} — ${getApproachLabel(layout.approach)} (esquema de corte)`, 14, y);
           y += 4;
 
           const ox = 14 + (maxDiagW - dw) / 2;
@@ -574,7 +573,7 @@ const PedraflexCalculator = () => {
                 {wallData[i].area > 0 && (
                   <p className="text-xs text-muted-foreground">
                     Superficie: {wallData[i].area.toFixed(2)} m² —{" "}
-                    {getWallPlates(wallData[i])} placas
+                    {getWallPlates(wallData[i])} placas con 10% desperdicio
                   </p>
                 )}
               </div>
@@ -635,10 +634,10 @@ const PedraflexCalculator = () => {
                       </p>
                       <div className="flex gap-3 text-xs">
                         <span className="font-semibold text-primary">
-                          {layout.plateCount} placas
+                          {w.requiredPlates} placas
                         </span>
                         <span className="text-muted-foreground">
-                          {Math.ceil(layout.plateCount * plate.adhesivePer)} adhesivos
+                          esquema de corte
                         </span>
                       </div>
                     </div>
